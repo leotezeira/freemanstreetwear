@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getShippingCost } from '@/lib/utils';
-// @ts-ignore - MercadoPago SDK types
-import mercadopago from 'mercadopago';
+import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 // Configure MercadoPago
-mercadopago.configure({
-  access_token: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
+const client = new MercadoPagoConfig({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
 });
 
 export async function POST(request: NextRequest) {
@@ -125,7 +124,9 @@ export async function POST(request: NextRequest) {
 
     // Create MercadoPago preference
     try {
-      const preference = {
+      const preference = new Preference(client);
+      
+      const preferenceData: any = {
         items: orderItems.map((item) => ({
           title: item.product_name,
           unit_price: item.product_price,
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
           },
           address: {
             street_name: shipping.address,
-            city: shipping.city,
+            city_name: shipping.city,
             state_name: shipping.state,
             zip_code: shipping.postal_code,
           },
@@ -150,24 +151,24 @@ export async function POST(request: NextRequest) {
           failure: `${process.env.NEXT_PUBLIC_APP_URL}/checkout?error=payment_failed`,
           pending: `${process.env.NEXT_PUBLIC_APP_URL}/confirmation?order_id=${order.id}`,
         },
-        auto_return: 'approved' as const,
+        auto_return: 'approved',
         notification_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook`,
         external_reference: order.id,
         statement_descriptor: 'FREEMAN STREETWEAR',
       };
 
-      const response = await mercadopago.preferences.create(preference);
+      const response = await preference.create({ body: preferenceData });
 
       // Update order with payment preference ID
       await supabaseAdmin
         .from('orders')
-        .update({ payment_id: response.body.id })
+        .update({ payment_id: response.id })
         .eq('id', order.id);
 
       return NextResponse.json({
         order_id: order.id,
-        init_point: response.body.init_point,
-        sandbox_init_point: response.body.sandbox_init_point,
+        init_point: response.init_point,
+        sandbox_init_point: response.sandbox_init_point,
       });
     } catch (mpError) {
       console.error('MercadoPago error:', mpError);

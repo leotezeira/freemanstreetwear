@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-// @ts-ignore
-import mercadopago from 'mercadopago';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 import nodemailer from 'nodemailer';
 
-mercadopago.configure({
-  access_token: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
+const client = new MercadoPagoConfig({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
 });
 
 // Email transporter
@@ -71,14 +70,15 @@ export async function POST(request: NextRequest) {
       const paymentId = body.data.id;
 
       // Get payment details from MercadoPago
-      const payment = await mercadopago.payment.findById(paymentId);
+      const payment = new Payment(client);
+      const paymentData = await payment.get({ id: paymentId });
       
-      if (!payment.body) {
+      if (!paymentData) {
         return NextResponse.json({ received: true });
       }
 
-      const orderId = payment.body.external_reference;
-      const status = payment.body.status;
+      const orderId = paymentData.external_reference;
+      const status = paymentData.status;
 
       // Get order from database
       const { data: order, error: orderError } = await supabaseAdmin
