@@ -1,0 +1,37 @@
+{
+  "name": "freemanstore",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "reset-admin-password": "node scripts/reset-admin-password.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.53.0",
+    "@types/sanitize-html": "^2.16.0",
+    "lucide-react": "^0.542.0",
+    "next": "^15.5.12",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "sanitize-html": "^2.17.0",
+    "sharp": "^0.33.5",
+    "ylazzari-correoargentino": "^0.0.7",
+    "zod": "^3.24.1",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "15.5.12",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  }
+}

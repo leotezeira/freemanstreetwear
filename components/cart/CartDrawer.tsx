@@ -1,0 +1,154 @@
+"use client";
+
+import { useEffect, useMemo } from "react";
+import { Icon } from "@/components/ui/icon";
+import { useToast } from "@/components/ui/toast";
+import { CartItemRow } from "@/components/cart/CartItem";
+import { CartSummary } from "@/components/cart/CartSummary";
+import { useCartStore } from "@/lib/cart/store";
+import { ShoppingCart, X } from "lucide-react";
+
+function SkeletonLine() {
+  return (
+    <div className="flex gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+      <div className="h-16 w-16 rounded-lg bg-slate-100 dark:bg-slate-900" />
+      <div className="flex-1 space-y-2">
+        <div className="h-4 w-3/4 rounded bg-slate-100 dark:bg-slate-900" />
+        <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-900" />
+        <div className="h-9 w-40 rounded bg-slate-100 dark:bg-slate-900" />
+      </div>
+    </div>
+  );
+}
+
+export function CartDrawer() {
+  const toast = useToast();
+
+  const open = useCartStore((s) => s.drawerOpen);
+  const close = useCartStore((s) => s.closeDrawer);
+  const items = useCartStore((s) => s.items);
+  const totalQty = useCartStore((s) => s.totals.totalQuantity);
+  const canCheckout = useCartStore((s) => s.canCheckout);
+  const validationState = useCartStore((s) => s.validationState);
+  const syncState = useCartStore((s) => s.syncState);
+
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const removeFromCart = useCartStore((s) => s.removeFromCart);
+  const validateAgainstSupabase = useCartStore((s) => s.validateAgainstSupabase);
+  const initAuthSyncListener = useCartStore((s) => s.initAuthSyncListener);
+
+  const busy = validationState === "validating" || syncState === "syncing";
+
+  useEffect(() => {
+    const unsubscribe = initAuthSyncListener();
+    return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close on escape.
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, close]);
+
+  // Light validation when the drawer opens (best-effort, cached prices/stock).
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      const result = await validateAgainstSupabase();
+      if (!result.ok) {
+        toast.push({ variant: "info", title: "Carrito", description: result.reason });
+      }
+    })();
+  }, [open, validateAgainstSupabase, toast]);
+
+  const headerSubtitle = useMemo(() => {
+    if (items.length === 0) return "Tu carrito está vacío";
+    const plural = totalQty === 1 ? "producto" : "productos";
+    return `${totalQty} ${plural}`;
+  }, [items.length, totalQty]);
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+      aria-hidden={!open}
+    >
+      <div
+        className={`absolute inset-0 bg-slate-950/60 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
+        onClick={() => close()}
+      />
+
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Carrito"
+        className={`absolute right-0 top-0 flex h-full w-full flex-col bg-white shadow-soft transition-transform duration-200 dark:bg-slate-950 sm:w-[420px] ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-slate-800">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Icon icon={ShoppingCart} />
+              <h2 className="truncate text-base font-black text-slate-900 dark:text-slate-50">Carrito</h2>
+            </div>
+            <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{headerSubtitle}</p>
+          </div>
+
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 hover:border-slate-900 dark:border-slate-800 dark:hover:border-slate-200"
+            onClick={() => close()}
+            aria-label="Cerrar"
+          >
+            <Icon icon={X} />
+          </button>
+        </header>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            {busy ? (
+              <>
+                <SkeletonLine />
+                <SkeletonLine />
+              </>
+            ) : items.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                Tu carrito está vacío.
+              </div>
+            ) : (
+              items.map((item) => (
+                <CartItemRow
+                  key={`${item.productId}-${item.variantId ?? "base"}`}
+                  item={item}
+                  disabled={busy}
+                  onDecrease={() =>
+                    updateQuantity(item.productId, item.quantity - 1, item.variantId)
+                  }
+                  onIncrease={() =>
+                    updateQuantity(item.productId, item.quantity + 1, item.variantId)
+                  }
+                  onRemove={() => removeFromCart(item.productId, item.variantId)}
+                />
+              ))
+            )}
+          </div>
+
+          <div className="flex-none">
+            <CartSummary />
+            {!canCheckout && items.length > 0 ? (
+              <p className="mt-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                Checkout deshabilitado: hay productos sin stock o no disponibles.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
