@@ -94,6 +94,10 @@ export async function POST(request: Request) {
       items: orderItems,
     });
 
+    if (!order) {
+      return NextResponse.json({ error: "No se pudo crear la orden" }, { status: 500 });
+    }
+
     // Set human-friendly order number after we have a UUID.
     const orderNumber = createOrderNumber(order.id);
     // Best-effort; ignore if DB isn't migrated.

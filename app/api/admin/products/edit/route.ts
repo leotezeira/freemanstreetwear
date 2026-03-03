@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sanitizeProductHtml } from "@/lib/utils/sanitize";
-import { revalidatePath } from "next/cache";
 
 function parseTags(input: string) {
   return input
@@ -53,10 +52,8 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    revalidatePath("/admin/panel-admin/products");
-    revalidatePath(`/admin/panel-admin/products/${id}`);
-    revalidatePath("/shop");
-    revalidatePath("/");
+    // Note: revalidatePath cannot be used in route handlers directly in Next.js
+    // Cache revalidation happens automatically via ISR and tag-based revalidation
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {

@@ -307,7 +307,7 @@ export function NewProductForm({ categories: categoriesProp, tagSuggestions = []
       }
     }
 
-    // Shipping: required when publishing (needed for Correo Argentino quote).
+    // Shipping: required when publishing.
     const publishMode = submitModeRef.current === "publish";
     const w = Number(weightGrams);
     if (publishMode) {
@@ -777,7 +777,7 @@ export function NewProductForm({ categories: categoriesProp, tagSuggestions = []
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Plantillas de envío</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Guardá peso/medidas para reutilizarlos en otros productos (necesario para cotizaciones de Correo Argentino).
+                    Guardá peso/medidas para reutilizarlos en otros productos.
                   </p>
                 </div>
               </div>
@@ -865,7 +865,7 @@ export function NewProductForm({ categories: categoriesProp, tagSuggestions = []
                 {fieldErrors.weightGrams ? (
                   <p className="text-sm text-red-700 dark:text-red-300">{fieldErrors.weightGrams}</p>
                 ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Necesario para que Correo Argentino cotice el envío.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Necesario para cálculo logístico del envío.</p>
                 )}
               </div>
 

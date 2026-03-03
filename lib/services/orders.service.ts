@@ -23,27 +23,49 @@ type CreateOrderInput = {
 export async function createOrderWithItems(input: CreateOrderInput) {
   const supabase = getSupabaseAdminClient();
 
-  const { data: order, error: orderError } = await supabase
+  const basePayload = {
+    customer_name: input.customerName,
+    customer_email: input.customerEmail,
+    customer_phone: input.customerPhone,
+    shipping_address: input.shippingAddress,
+    postal_code: input.postalCode,
+    total_amount: input.totalAmount,
+    shipping_amount: input.shippingAmount,
+    shipping_type: input.shippingType,
+    shipping_price: input.shippingPrice,
+    shipping_agency_code: input.shippingAgencyCode ?? null,
+    payment_status: input.paymentStatus,
+  };
+
+  const withOrderNumberPayload = {
+    ...basePayload,
+    order_number: input.orderNumber ?? null,
+  };
+
+  let { data: order, error: orderError } = await supabase
     .from("orders")
-    .insert({
-      order_number: input.orderNumber ?? null,
-      customer_name: input.customerName,
-      customer_email: input.customerEmail,
-      customer_phone: input.customerPhone,
-      shipping_address: input.shippingAddress,
-      postal_code: input.postalCode,
-      total_amount: input.totalAmount,
-      shipping_amount: input.shippingAmount,
-      shipping_type: input.shippingType,
-      shipping_price: input.shippingPrice,
-      shipping_agency_code: input.shippingAgencyCode ?? null,
-      payment_status: input.paymentStatus,
-    })
+    .insert(withOrderNumberPayload)
     .select("id")
     .single();
 
-  if (orderError) {
-    throw new Error(`Failed to create order: ${orderError.message}`);
+  const message = orderError?.message ?? "";
+  const missingOrderNumberColumn =
+    message.toLowerCase().includes("order_number") &&
+    message.toLowerCase().includes("could not find");
+
+  if (orderError && missingOrderNumberColumn) {
+    const retry = await supabase
+      .from("orders")
+      .insert(basePayload)
+      .select("id")
+      .single();
+
+    order = retry.data;
+    orderError = retry.error;
+  }
+
+  if (orderError || !order) {
+    throw new Error(`Failed to create order: ${orderError?.message ?? "Unknown error"}`);
   }
 
   const orderItemsPayload = input.items.map((item) => ({

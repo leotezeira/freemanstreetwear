@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { LoaderCircle, MapPin, Store, Truck } from "lucide-react";
+import { LoaderCircle, Truck } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -16,19 +16,29 @@ type ShippingOption = {
   etaDays: number | null;
 };
 
-type FixedShippingRateResponse = {
-  price: number;
-  currency: "ARS";
-  deliveryType: "branch" | "home";
-  estimatedDays: string;
-};
-
-type Agency = {
+type BranchAgency = {
   agencyCode: string;
   description: string;
   address: string;
   locality: string;
+  province: string;
+  cpa: string;
 };
+
+const DEFAULT_SHIPPING_OPTIONS: ShippingOption[] = [
+  {
+    shippingType: "D",
+    serviceName: "Envío a domicilio",
+    price: 7500,
+    etaDays: null,
+  },
+  {
+    shippingType: "S",
+    serviceName: "Envío a sucursal",
+    price: 6500,
+    etaDays: null,
+  },
+];
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
@@ -91,14 +101,91 @@ export default function CheckoutPage() {
 
   const [selectedShippingType, setSelectedShippingType] = useState<"D" | "S" | null>(null);
   const [selectedShippingPrice, setSelectedShippingPrice] = useState<number>(0);
-
-  const [agenciesLoading, setAgenciesLoading] = useState(false);
-  const [agenciesError, setAgenciesError] = useState<string | null>(null);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [branchLoading, setBranchLoading] = useState(false);
+  const [branchError, setBranchError] = useState<string | null>(null);
+  const [branchProvinces, setBranchProvinces] = useState<string[]>([]);
+  const [branchLocalities, setBranchLocalities] = useState<string[]>([]);
+  const [branchAgencies, setBranchAgencies] = useState<BranchAgency[]>([]);
+  const [selectedBranchProvince, setSelectedBranchProvince] = useState<string>("");
+  const [selectedBranchLocality, setSelectedBranchLocality] = useState<string>("");
   const [selectedAgencyCode, setSelectedAgencyCode] = useState<string>("");
 
   const shipping = useMemo(() => selectedShippingPrice ?? 0, [selectedShippingPrice]);
   const total = cartSubtotal + shipping;
+
+  async function loadBranchProvinces() {
+    setBranchLoading(true);
+    setBranchError(null);
+    try {
+      const res = await fetch("/api/shipping/agencies");
+      const body = (await res.json().catch(() => null)) as
+        | { provinces?: string[]; error?: string }
+        | null;
+
+      if (!res.ok) throw new Error(body?.error ?? "No se pudieron cargar las provincias");
+
+      const provinces = Array.isArray(body?.provinces) ? body.provinces : [];
+      setBranchProvinces(provinces);
+      if (!provinces.length) {
+        setBranchError("No hay provincias disponibles en el archivo de sucursales");
+      }
+    } catch (e) {
+      setBranchError(e instanceof Error ? e.message : "No se pudieron cargar las provincias");
+    } finally {
+      setBranchLoading(false);
+    }
+  }
+
+  async function loadBranchLocalities(province: string) {
+    setBranchLoading(true);
+    setBranchError(null);
+    try {
+      const res = await fetch(`/api/shipping/agencies?province=${encodeURIComponent(province)}`);
+      const body = (await res.json().catch(() => null)) as
+        | { localities?: string[]; error?: string }
+        | null;
+      if (!res.ok) throw new Error(body?.error ?? "No se pudieron cargar las localidades");
+
+      const localities = Array.isArray(body?.localities) ? body.localities : [];
+      setBranchLocalities(localities);
+      setBranchAgencies([]);
+      setSelectedAgencyCode("");
+
+      if (!localities.length) {
+        setBranchError("No hay localidades para la provincia seleccionada");
+      }
+    } catch (e) {
+      setBranchError(e instanceof Error ? e.message : "No se pudieron cargar las localidades");
+    } finally {
+      setBranchLoading(false);
+    }
+  }
+
+  async function loadBranchAgencies(province: string, locality: string) {
+    setBranchLoading(true);
+    setBranchError(null);
+    try {
+      const res = await fetch(
+        `/api/shipping/agencies?province=${encodeURIComponent(province)}&locality=${encodeURIComponent(locality)}`
+      );
+      const body = (await res.json().catch(() => null)) as
+        | { agencies?: BranchAgency[]; error?: string }
+        | null;
+      if (!res.ok) throw new Error(body?.error ?? "No se pudieron cargar las sucursales");
+
+      const agencies = Array.isArray(body?.agencies) ? body.agencies : [];
+      setBranchAgencies(agencies);
+      setSelectedAgencyCode("");
+
+      if (!agencies.length) {
+        setBranchError("No hay sucursales para la localidad seleccionada");
+      }
+    } catch (e) {
+      setBranchError(e instanceof Error ? e.message : "No se pudieron cargar las sucursales");
+    } finally {
+      setBranchLoading(false);
+    }
+  }
 
   async function quoteShipping() {
     setQuoteLoading(true);
@@ -108,39 +195,7 @@ export default function CheckoutPage() {
       if (!customer.postalCode.trim()) throw new Error("Ingresá un código postal");
       if (cartItems.length === 0) throw new Error("El carrito está vacío");
 
-      const zipCode = customer.postalCode.trim();
-
-      const cartItemsForRates = cartItems.map((item) => ({
-        weight_grams: item.weight_grams ?? undefined,
-        height: item.height ?? undefined,
-        width: item.width ?? undefined,
-        length: item.length ?? undefined,
-        quantity: item.quantity,
-      }));
-
-      const quote = async (deliveryType: "home" | "branch") => {
-        const res = await fetch("/api/shipping/rates", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ zipCode, deliveryType, cartItems: cartItemsForRates }),
-        });
-
-        const body = (await res.json().catch(() => null)) as Partial<FixedShippingRateResponse> & { error?: string };
-        if (!res.ok) throw new Error(body?.error ?? "No se pudo cotizar el envío");
-
-        if (typeof body.price !== "number" || !Number.isFinite(body.price)) {
-          throw new Error("Respuesta inválida de cotización");
-        }
-
-        return {
-          shippingType: deliveryType === "home" ? "D" : "S",
-          serviceName: deliveryType === "home" ? "Envío a domicilio" : "Envío a sucursal",
-          price: body.price,
-          etaDays: null,
-        } as ShippingOption;
-      };
-
-      const options = (await Promise.all([quote("home"), quote("branch")])).sort((a, b) => a.price - b.price);
+      const options = [...DEFAULT_SHIPPING_OPTIONS].sort((a, b) => a.price - b.price);
 
       setShippingOptions(options);
 
@@ -148,9 +203,6 @@ export default function CheckoutPage() {
       setSelectedShippingType(cheapest.shippingType);
       setSelectedShippingPrice(Number(cheapest.price));
       setShippingEstimate({ postalCode: customer.postalCode, price: Number(cheapest.price), updatedAt: Date.now() });
-      setSelectedAgencyCode("");
-      setAgencies([]);
-      setAgenciesError(null);
 
       toast.push({
         variant: "success",
@@ -163,32 +215,6 @@ export default function CheckoutPage() {
       toast.push({ variant: "error", title: "Error al cotizar", description: msg });
     } finally {
       setQuoteLoading(false);
-    }
-  }
-
-  async function loadAgencies() {
-    setAgenciesLoading(true);
-    setAgenciesError(null);
-
-    try {
-      const res = await fetch(
-        `/api/shipping/agencies?provinceCode=${encodeURIComponent(customer.provinceCode)}`
-      );
-      const body = (await res.json().catch(() => null)) as any;
-      if (!res.ok) throw new Error(body?.error ?? "No se pudieron cargar las sucursales");
-
-      const list = (body?.agencies ?? []) as Agency[];
-      setAgencies(Array.isArray(list) ? list : []);
-
-      if (!Array.isArray(list) || list.length === 0) {
-        setAgenciesError("No hay sucursales para la provincia seleccionada");
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "No se pudieron cargar las sucursales";
-      setAgenciesError(msg);
-      toast.push({ variant: "error", title: "Sucursales", description: msg });
-    } finally {
-      setAgenciesLoading(false);
     }
   }
 
@@ -209,7 +235,6 @@ export default function CheckoutPage() {
 
       if (cartItems.length === 0) throw new Error("El carrito está vacío");
       if (!selectedShippingType) throw new Error("Cotizá y seleccioná un método de envío");
-
       if (selectedShippingType === "S" && !selectedAgencyCode) {
         throw new Error("Seleccioná una sucursal");
       }
@@ -248,8 +273,7 @@ export default function CheckoutPage() {
     }
   }
 
-  const canContinueFromShipping =
-    !!selectedShippingType && (selectedShippingType === "D" || !!selectedAgencyCode);
+  const canContinueFromShipping = !!selectedShippingType && (selectedShippingType === "D" || !!selectedAgencyCode);
 
   return (
     <main className="app-container py-10">
@@ -375,17 +399,12 @@ export default function CheckoutPage() {
             <>
               <h2 className="text-lg font-bold">Paso 3: Envío</h2>
               <p className="text-sm text-slate-600">
-                Cotizá el envío con Correo Argentino y elegí la opción.
+                El envío se realiza con Correo Argentino. Elegí la opción que prefieras.
               </p>
 
               <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Icon icon={MapPin} />
-                    <p className="text-sm font-semibold">
-                      Código postal: {customer.postalCode || "—"}
-                    </p>
-                  </div>
+                  <p className="text-sm font-semibold">Código postal: {customer.postalCode || "—"}</p>
 
                   <button
                     className="btn-secondary"
@@ -440,9 +459,14 @@ export default function CheckoutPage() {
                             });
 
                             if (opt.shippingType === "D") {
+                              setBranchError(null);
+                              setSelectedBranchProvince("");
+                              setSelectedBranchLocality("");
                               setSelectedAgencyCode("");
-                              setAgencies([]);
-                              setAgenciesError(null);
+                              setBranchLocalities([]);
+                              setBranchAgencies([]);
+                            } else if (!branchProvinces.length) {
+                              void loadBranchProvinces();
                             }
                           }}
                           className={[
@@ -454,7 +478,7 @@ export default function CheckoutPage() {
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-slate-700 dark:text-slate-200">
-                              <Icon icon={opt.shippingType === "D" ? Truck : Store} />
+                              <Icon icon={Truck} />
                             </span>
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
@@ -482,70 +506,82 @@ export default function CheckoutPage() {
                   <div className="mt-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-sm font-semibold">Retiro en sucursal</p>
 
-                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                      <select
-                        className="input-base"
-                        value={customer.provinceCode}
-                        onChange={(e) =>
-                          setCustomer((p) => ({ ...p, provinceCode: e.target.value }))
-                        }
-                      >
-                        {PROVINCES.map((p) => (
-                          <option key={p.code} value={p.code}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="mt-3 grid gap-3">
+                      <div className="grid gap-1">
+                        <label className="text-sm font-semibold text-slate-700">Provincia</label>
+                        <select
+                          className="input-base"
+                          value={selectedBranchProvince}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedBranchProvince(value);
+                            setSelectedBranchLocality("");
+                            setSelectedAgencyCode("");
+                            setBranchLocalities([]);
+                            setBranchAgencies([]);
+                            if (value) void loadBranchLocalities(value);
+                          }}
+                          disabled={branchLoading || !branchProvinces.length}
+                        >
+                          <option value="">Seleccioná una provincia</option>
+                          {branchProvinces.map((province) => (
+                            <option key={province} value={province}>
+                              {province}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                      <button
-                        className="btn-secondary"
-                        type="button"
-                        onClick={loadAgencies}
-                        disabled={agenciesLoading}
-                      >
-                        <span className="flex items-center gap-2">
-                          {agenciesLoading ? (
-                            <Icon icon={LoaderCircle} className="animate-spin" />
-                          ) : (
-                            <Icon icon={Store} />
-                          )}
-                          <span>{agenciesLoading ? "Buscando..." : "Buscar"}</span>
-                        </span>
-                      </button>
-                    </div>
+                      <div className="grid gap-1">
+                        <label className="text-sm font-semibold text-slate-700">Localidad</label>
+                        <select
+                          className="input-base"
+                          value={selectedBranchLocality}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedBranchLocality(value);
+                            setSelectedAgencyCode("");
+                            setBranchAgencies([]);
+                            if (value && selectedBranchProvince) {
+                              void loadBranchAgencies(selectedBranchProvince, value);
+                            }
+                          }}
+                          disabled={branchLoading || !selectedBranchProvince || !branchLocalities.length}
+                        >
+                          <option value="">Seleccioná una localidad</option>
+                          {branchLocalities.map((locality) => (
+                            <option key={locality} value={locality}>
+                              {locality}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    {agenciesError ? (
-                      <p className="mt-2 text-sm text-red-600">{agenciesError}</p>
-                    ) : null}
-
-                    {agenciesLoading ? (
-                      <div className="mt-3 h-12 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
-                    ) : null}
-
-                    {!agenciesLoading && agencies.length ? (
-                      <div className="mt-3 grid gap-2">
-                        <label className="text-sm font-semibold">Sucursal</label>
+                      <div className="grid gap-1">
+                        <label className="text-sm font-semibold text-slate-700">Sucursal</label>
                         <select
                           className="input-base"
                           value={selectedAgencyCode}
                           onChange={(e) => setSelectedAgencyCode(e.target.value)}
+                          disabled={branchLoading || !selectedBranchLocality || !branchAgencies.length}
                         >
                           <option value="">Seleccioná una sucursal</option>
-                          {agencies.map((a) => (
-                            <option key={a.agencyCode} value={a.agencyCode}>
-                              {a.description} · {a.locality}
+                          {branchAgencies.map((agency) => (
+                            <option key={agency.agencyCode} value={agency.agencyCode}>
+                              {agency.agencyCode} · {agency.locality}
                             </option>
                           ))}
                         </select>
-
-                        {selectedAgencyCode ? (
-                          <p className="text-xs text-slate-500">
-                            {agencies.find((a) => a.agencyCode === selectedAgencyCode)
-                              ?.address ?? ""}
-                          </p>
-                        ) : null}
                       </div>
-                    ) : null}
+
+                      {selectedAgencyCode ? (
+                        <p className="text-xs text-slate-500">
+                          {branchAgencies.find((agency) => agency.agencyCode === selectedAgencyCode)?.address ?? ""}
+                        </p>
+                      ) : null}
+
+                      {branchError ? <p className="text-sm text-red-600">{branchError}</p> : null}
+                    </div>
                   </div>
                 ) : null}
               </div>

@@ -46,11 +46,6 @@ type ShippingPreset = {
   length: number | null;
 };
 
-function toIntOrZero(value: string) {
-  const n = Number.parseInt(value, 10);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
-
 function normalizeTag(tag: string) {
   return tag
     .trim()
@@ -420,7 +415,7 @@ export function EditProductForm({ product, categories: categoriesProp }: Props) 
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Plantillas de envío</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Guardá peso/medidas para reutilizarlos en otros productos (necesario para cotizaciones de Correo Argentino).
+                    Guardá peso/medidas para reutilizarlos en otros productos.
                   </p>
                 </div>
               </div>
@@ -504,7 +499,7 @@ export function EditProductForm({ product, categories: categoriesProp }: Props) 
                 {fieldErrors.weightGrams ? (
                   <p className="text-sm text-red-700 dark:text-red-300">{fieldErrors.weightGrams}</p>
                 ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Necesario para que Correo Argentino cotice el envío.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Necesario para cálculo logístico del envío.</p>
                 )}
               </div>
 

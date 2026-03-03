@@ -86,17 +86,6 @@ export async function POST(request: Request) {
             }
           }
 
-          // Trigger shipping import (best-effort; import route prevents duplicates).
-          if (!order.shipping_id) {
-            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-            if (baseUrl) {
-              await fetch(`${baseUrl}/api/shipping/import`, {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ orderId }),
-              }).catch(() => null);
-            }
-          }
         }
       }
     }

@@ -21,13 +21,8 @@ async function createVariant(formData: FormData) {
   const sku = String(formData.get("sku") ?? "").trim() || null;
   const stock = Number(formData.get("variantStock") ?? 0);
 
-  function toOptionalNumber(value: FormDataEntryValue | null) {
-    if (value === null) return null;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  const price = toOptionalNumber(formData.get("variantPrice")) as number | null;
+  const priceRaw = formData.get("variantPrice");
+  const price = priceRaw !== null ? (Number.isFinite(Number(priceRaw)) ? Number(priceRaw) : null) : null;
 
   const { error } = await supabase
     .from("product_variants")

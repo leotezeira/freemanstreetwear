@@ -19,7 +19,6 @@
     "react-dom": "19.0.0",
     "sanitize-html": "^2.17.0",
     "sharp": "^0.33.5",
-    "ylazzari-correoargentino": "^0.0.7",
     "zod": "^3.24.1",
     "zustand": "^5.0.11"
   },

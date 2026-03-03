@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
-import { LoaderCircle, RefreshCcw, Truck } from "lucide-react";
+import { Info } from "lucide-react";
 
 type Props = {
   orderId: string;
@@ -20,72 +20,19 @@ type TrackingEvent = {
 };
 
 export function OrderShippingActions({
-  orderId,
+  orderId: _orderId,
   shippingId: shippingIdProp,
   trackingNumber: trackingNumberProp,
   shippingStatus: shippingStatusProp,
   trackingEvents: trackingEventsProp,
-  canRetryImport,
+  canRetryImport: _canRetryImport,
 }: Props) {
-  const [importLoading, setImportLoading] = useState(false);
-  const [importMsg, setImportMsg] = useState<string | null>(null);
-
-  const [trackingLoading, setTrackingLoading] = useState(false);
-  const [trackingMsg, setTrackingMsg] = useState<string | null>(null);
-
-  const [shippingId, setShippingId] = useState<string | null>(shippingIdProp);
-  const [trackingNumber, setTrackingNumber] = useState<string | null>(trackingNumberProp);
-  const [shippingStatus, setShippingStatus] = useState<string | null>(shippingStatusProp);
-  const [events, setEvents] = useState<TrackingEvent[]>(Array.isArray(trackingEventsProp) ? (trackingEventsProp as any) : []);
-
-  const hasTracking = !!shippingId;
+  const [shippingId] = useState<string | null>(shippingIdProp);
+  const [trackingNumber] = useState<string | null>(trackingNumberProp);
+  const [shippingStatus] = useState<string | null>(shippingStatusProp);
+  const [events] = useState<TrackingEvent[]>(Array.isArray(trackingEventsProp) ? (trackingEventsProp as any) : []);
 
   const lastEvent = useMemo(() => (events.length ? events[events.length - 1] : null), [events]);
-
-  async function retryImport() {
-    setImportLoading(true);
-    setImportMsg(null);
-
-    try {
-      const res = await fetch("/api/shipping/import", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ orderId, force: true }),
-      });
-      const body = (await res.json().catch(() => null)) as any;
-      if (!res.ok) throw new Error(body?.error ?? "No se pudo importar el envío");
-
-      setShippingId(body?.shippingId ?? null);
-      setTrackingNumber(body?.trackingNumber ?? null);
-      setShippingStatus(body?.shippingStatus ?? "imported");
-      setImportMsg("Envío importado correctamente.");
-    } catch (e) {
-      setImportMsg(e instanceof Error ? e.message : "No se pudo importar el envío");
-    } finally {
-      setImportLoading(false);
-    }
-  }
-
-  async function refreshTracking() {
-    if (!shippingId) return;
-    setTrackingLoading(true);
-    setTrackingMsg(null);
-
-    try {
-      const res = await fetch(`/api/shipping/tracking?shippingId=${encodeURIComponent(shippingId)}&force=true`);
-      const body = (await res.json().catch(() => null)) as any;
-      if (!res.ok) throw new Error(body?.error ?? "No se pudo actualizar el tracking");
-
-      setTrackingNumber(body?.trackingNumber ?? null);
-      setShippingStatus(body?.status ?? null);
-      setEvents(Array.isArray(body?.events) ? body.events : []);
-      setTrackingMsg(body?.cached ? "Tracking actualizado (cache)." : "Tracking actualizado.");
-    } catch (e) {
-      setTrackingMsg(e instanceof Error ? e.message : "No se pudo actualizar el tracking");
-    } finally {
-      setTrackingLoading(false);
-    }
-  }
 
   return (
     <div className="space-y-3">
@@ -101,26 +48,13 @@ export function OrderShippingActions({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {canRetryImport ? (
-          <button className="btn-secondary" type="button" onClick={retryImport} disabled={importLoading}>
-            <span className="flex items-center gap-2">
-              {importLoading ? <Icon icon={LoaderCircle} className="animate-spin" /> : <Icon icon={Truck} />}
-              <span>{importLoading ? "Importando..." : "Reintentar envío"}</span>
-            </span>
-          </button>
-        ) : null}
-
-        <button className="btn-secondary" type="button" onClick={refreshTracking} disabled={!hasTracking || trackingLoading}>
-          <span className="flex items-center gap-2">
-            {trackingLoading ? <Icon icon={LoaderCircle} className="animate-spin" /> : <Icon icon={RefreshCcw} />}
-            <span>{trackingLoading ? "Actualizando..." : "Actualizar tracking"}</span>
-          </span>
-        </button>
+      <div className="rounded-2xl border border-slate-200 p-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+        <p className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+          <Icon icon={Info} />
+          Seguimiento automático desactivado
+        </p>
+        <p className="mt-1">La integración automática de tracking fue removida y ya no se actualiza desde esta pantalla.</p>
       </div>
-
-      {importMsg ? <p className="text-sm text-slate-600 dark:text-slate-300">{importMsg}</p> : null}
-      {trackingMsg ? <p className="text-sm text-slate-600 dark:text-slate-300">{trackingMsg}</p> : null}
 
       {events.length ? (
         <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
