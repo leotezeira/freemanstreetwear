@@ -26,24 +26,32 @@ export async function createMercadoPagoPreference(input: CreatePreferenceInput) 
     throw new Error("NEXT_PUBLIC_BASE_URL is not configured");
   }
 
+  const back_urls = {
+    success: `${baseUrl}/checkout?status=success&orderId=${encodeURIComponent(input.externalReference)}`,
+    failure: `${baseUrl}/checkout?status=failure&orderId=${encodeURIComponent(input.externalReference)}`,
+    pending: `${baseUrl}/checkout?status=pending&orderId=${encodeURIComponent(input.externalReference)}`,
+  };
+
+  const bodyPayload: any = {
+    items: input.items,
+    payer: input.payer,
+    external_reference: input.externalReference,
+    notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+    back_urls,
+  };
+
+  // MercadoPago requires HTTPS for auto_return to work; only set it when baseUrl is secure
+  if (typeof baseUrl === "string" && baseUrl.startsWith("https://")) {
+    bodyPayload.auto_return = "approved";
+  }
+
   const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      items: input.items,
-      payer: input.payer,
-      external_reference: input.externalReference,
-      notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-      back_urls: {
-        success: `${baseUrl}/checkout?status=success&orderId=${encodeURIComponent(input.externalReference)}`,
-        failure: `${baseUrl}/checkout?status=failure&orderId=${encodeURIComponent(input.externalReference)}`,
-        pending: `${baseUrl}/checkout?status=pending&orderId=${encodeURIComponent(input.externalReference)}`,
-      },
-      auto_return: "approved",
-    }),
+    body: JSON.stringify(bodyPayload),
   });
 
   if (!response.ok) {

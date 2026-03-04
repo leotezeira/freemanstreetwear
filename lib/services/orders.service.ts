@@ -49,14 +49,30 @@ export async function createOrderWithItems(input: CreateOrderInput) {
     .single();
 
   const message = orderError?.message ?? "";
-  const missingOrderNumberColumn =
-    message.toLowerCase().includes("order_number") &&
-    message.toLowerCase().includes("could not find");
+  // detect any missing-column errors reported by Postgres
+  const missingColumns: string[] = [];
+  // regex covers case-insensitive but we normalize to lower-case
+  const regex = /could not find the '([a-z0-9_]+)' column/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(message.toLowerCase())) !== null) {
+    missingColumns.push(match[1]);
+  }
 
-  if (orderError && missingOrderNumberColumn) {
+  if (orderError && missingColumns.length) {
+    // create a copy of payload and drop all missing columns (snake_case)
+    const payload: Record<string, any> = { ...basePayload };
+    if (input.orderNumber != null) payload.order_number = input.orderNumber;
+
+    for (const col of missingColumns) {
+      // remove property if present
+      if (payload.hasOwnProperty(col)) {
+        delete payload[col];
+      }
+    }
+
     const retry = await supabase
       .from("orders")
-      .insert(basePayload)
+      .insert(payload)
       .select("id")
       .single();
 

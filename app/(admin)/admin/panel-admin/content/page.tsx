@@ -45,6 +45,24 @@ async function upsertSiteContent(key: string, value: unknown) {
 async function updateHomeContent(formData: FormData) {
   "use server";
   try {
+    // Validate all text fields first
+    const heroTitle = String(formData.get("heroTitle") ?? "").trim();
+    const heroSubtitle = String(formData.get("heroSubtitle") ?? "").trim();
+    const heroCtaLabel = String(formData.get("heroCtaLabel") ?? "").trim();
+    const heroCtaHref = String(formData.get("heroCtaHref") ?? "/shop").trim();
+    const promoTitle = String(formData.get("promoTitle") ?? "").trim();
+    const promoSubtitle = String(formData.get("promoSubtitle") ?? "").trim();
+    const newsletterTitle = String(formData.get("newsletterTitle") ?? "").trim();
+    const newsletterSubtitle = String(formData.get("newsletterSubtitle") ?? "").trim();
+
+    if (!heroTitle) throw new Error("Título hero es requerido");
+    if (!heroSubtitle) throw new Error("Subtítulo hero es requerido");
+    if (!heroCtaLabel) throw new Error("Texto CTA es requerido");
+    if (!promoTitle) throw new Error("Título promo es requerido");
+    if (!promoSubtitle) throw new Error("Subtítulo promo es requerido");
+    if (!newsletterTitle) throw new Error("Título newsletter es requerido");
+    if (!newsletterSubtitle) throw new Error("Subtítulo newsletter es requerido");
+
     const current = await getSiteContent({ resolveStorageUrls: false });
     let heroImageUrl = current.home.heroImageUrl;
 
@@ -56,42 +74,58 @@ async function updateHomeContent(formData: FormData) {
       }
 
       if (heroImageFile.size > MAX_HERO_IMAGE_BYTES) {
-        throw new Error(`La imagen hero supera el máximo de ${MAX_HERO_IMAGE_BYTES} bytes`);
+        throw new Error(`La imagen hero supera el máximo de ${MAX_HERO_IMAGE_BYTES / 1024 / 1024}MB`);
       }
 
       const supabase = getSupabaseAdminClient();
       const fileName = `${crypto.randomUUID()}.webp`;
       const path = `content/home/hero/${fileName}`;
 
-      const rawBuffer = Buffer.from(await heroImageFile.arrayBuffer());
-      const webpBuffer = await sharp(rawBuffer)
-        .rotate()
-        .resize({ width: MAX_HERO_IMAGE_WIDTH, withoutEnlargement: true })
-        .webp({ quality: HERO_IMAGE_WEBP_QUALITY })
-        .toBuffer();
+      try {
+        const rawBuffer = Buffer.from(await heroImageFile.arrayBuffer());
+        
+        // Process image with better error handling
+        let webpBuffer: Buffer;
+        try {
+          webpBuffer = await sharp(rawBuffer)
+            .rotate() // auto-rotate based on EXIF
+            .resize({ width: MAX_HERO_IMAGE_WIDTH, withoutEnlargement: true })
+            .webp({ quality: HERO_IMAGE_WEBP_QUALITY })
+            .toBuffer();
+        } catch (sharpErr) {
+          // If rotate fails, try without it
+          webpBuffer = await sharp(rawBuffer)
+            .resize({ width: MAX_HERO_IMAGE_WIDTH, withoutEnlargement: true })
+            .webp({ quality: HERO_IMAGE_WEBP_QUALITY })
+            .toBuffer();
+        }
 
-      const { error: uploadError } = await supabase.storage
-        .from(PRODUCT_IMAGES_BUCKET)
-        .upload(path, webpBuffer, { contentType: "image/webp", upsert: false });
+        const { error: uploadError } = await supabase.storage
+          .from(PRODUCT_IMAGES_BUCKET)
+          .upload(path, webpBuffer, { contentType: "image/webp", upsert: false });
 
-      if (uploadError) {
-        throw new Error(`No se pudo subir la imagen hero: ${uploadError.message}`);
+        if (uploadError) {
+          throw new Error(`No se pudo subir la imagen: ${uploadError.message}`);
+        }
+
+        heroImageUrl = `storage:${path}`;
+      } catch (imgError) {
+        const msg = imgError instanceof Error ? imgError.message : "Error al procesar imagen";
+        throw new Error(`Error con la imagen hero: ${msg}`);
       }
-
-      heroImageUrl = `storage:${path}`;
     }
 
-    const payload = {
-      ...current.home,
-      heroTitle: String(formData.get("heroTitle") ?? ""),
-      heroSubtitle: String(formData.get("heroSubtitle") ?? ""),
-      heroCtaLabel: String(formData.get("heroCtaLabel") ?? ""),
-      heroCtaHref: String(formData.get("heroCtaHref") ?? "/shop"),
+    // Build payload
+    const payload: Record<string, string> = {
+      heroTitle,
+      heroSubtitle,
+      heroCtaLabel,
+      heroCtaHref,
       heroImageUrl,
-      promoTitle: String(formData.get("promoTitle") ?? ""),
-      promoSubtitle: String(formData.get("promoSubtitle") ?? ""),
-      newsletterTitle: String(formData.get("newsletterTitle") ?? ""),
-      newsletterSubtitle: String(formData.get("newsletterSubtitle") ?? ""),
+      promoTitle,
+      promoSubtitle,
+      newsletterTitle,
+      newsletterSubtitle,
     };
 
     const result = await upsertSiteContent("home_content", payload);

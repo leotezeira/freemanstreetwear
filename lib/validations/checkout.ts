@@ -6,6 +6,7 @@ export const checkoutSchema = z.object({
     email: z.string().trim().email(),
     phone: z.string().trim().min(6),
     shippingAddress: z.string().trim().min(5),
+    locality: z.string().trim().min(1),
     postalCode: z
       .string()
       .trim()

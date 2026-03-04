@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
 import { LoaderCircle, Truck } from "lucide-react";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3; // 1: personal, 2: address+shipping, 3: confirmation
 
 type ShippingOption = {
   shippingType: "D" | "S";
@@ -93,6 +93,7 @@ export default function CheckoutPage() {
     shippingAddress: "",
     postalCode: "",
     provinceCode: "02",
+    locality: "",
   });
 
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -223,12 +224,68 @@ export default function CheckoutPage() {
     setPayError(null);
 
     try {
+      // run the same zod schema used by the API so we can surface specific errors
+      const { createPreferenceSchema } = await import("@/lib/validations/payment");
+      const payload = {
+        customer,
+        items: cartItems.map((it) => ({
+          productId: it.productId,
+          quantity: it.quantity,
+        })),
+        shipping: {
+          type: selectedShippingType,
+          price: shipping,
+          agencyCode: selectedShippingType === "S" ? selectedAgencyCode : null,
+        },
+      };
+
+      const parsed = createPreferenceSchema.safeParse(payload);
+      if (!parsed.success) {
+        // format the flattened error object into a readable string and translate
+        const err = parsed.error.flatten();
+        let msg = Object.entries(err.fieldErrors)
+          .map(([k, v]) => `${k}: ${v?.join(", ")}`)
+          .join("; ");
+
+        // humanize field keys and translate some common zod wording
+        const names: Record<string, string> = {
+          "customer.name": "Nombre",
+          "customer.email": "Email",
+          "customer.phone": "Teléfono",
+          "customer.shippingAddress": "Dirección",
+          "customer.postalCode": "Código postal",
+          "customer.locality": "Localidad",
+          "shipping.price": "Precio de envío",
+        };
+        for (const [key, friendly] of Object.entries(names)) {
+          msg = msg.replace(new RegExp(key, "g"), friendly);
+        }
+
+        msg = msg
+          .replace(/String must contain at least (\d+) character\(s\)/g, "Debe tener al menos $1 caracteres")
+          .replace(/Invalid email/g, "Email inválido")
+          .replace(/Required/g, "Requerido");
+
+        throw new Error(msg);
+      }
+
+      // additional client-side guard for minimum lengths to avoid network round-trip
+      if (!customer.name || customer.name.trim().length < 2) {
+        throw new Error("El nombre debe tener al menos 2 caracteres");
+      }
+      if (!customer.phone || customer.phone.trim().length < 6) {
+        throw new Error("El teléfono debe tener al menos 6 dígitos");
+      }
+      if (!customer.shippingAddress || customer.shippingAddress.trim().length < 5) {
+        throw new Error("La dirección debe tener al menos 5 caracteres");
+      }
       if (
         !customer.name ||
         !customer.email ||
         !customer.phone ||
         !customer.shippingAddress ||
-        !customer.postalCode
+        !customer.postalCode ||
+        !customer.locality
       ) {
         throw new Error("Completá todos los datos requeridos");
       }
@@ -247,22 +304,14 @@ export default function CheckoutPage() {
       const response = await fetch("/api/payments/create-preference", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          customer,
-          items: cartItems.map((it) => ({
-            productId: it.productId,
-            quantity: it.quantity,
-          })),
-          shipping: {
-            type: selectedShippingType,
-            price: shipping,
-            agencyCode: selectedShippingType === "S" ? selectedAgencyCode : null,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       const body = (await response.json().catch(() => null)) as any;
-      if (!response.ok) throw new Error(body?.error ?? "No se pudo iniciar el pago");
+      if (!response.ok) {
+        const msg = body?.message || body?.error || "No se pudo iniciar el pago";
+        throw new Error(msg);
+      }
       if (!body?.initPoint) throw new Error("MercadoPago no devolvió initPoint");
 
       window.location.href = body.initPoint;
@@ -300,13 +349,6 @@ export default function CheckoutPage() {
           type="button"
         >
           Paso 3
-        </button>
-        <button
-          className={`btn-secondary ${step === 4 ? "opacity-100" : "opacity-70"}`}
-          onClick={() => setStep(4)}
-          type="button"
-        >
-          Paso 4
         </button>
       </div>
 
@@ -349,7 +391,9 @@ export default function CheckoutPage() {
 
           {step === 2 ? (
             <>
-              <h2 className="text-lg font-bold">Paso 2: Dirección</h2>
+              <h2 className="text-lg font-bold">Paso 2: Dirección y envío</h2>
+
+              {/* address inputs */}
               <div className="grid gap-3">
                 <input
                   className="input-base"
@@ -360,6 +404,13 @@ export default function CheckoutPage() {
                     setCustomer((p) => ({ ...p, shippingAddress: e.target.value }))
                   }
                   required
+                />
+                <input
+                  className="input-base"
+                  type="text"
+                  placeholder="Localidad"
+                  value={customer.locality}
+                  onChange={(e) => setCustomer((p) => ({ ...p, locality: e.target.value }))}
                 />
                 <input
                   className="input-base"
@@ -384,25 +435,9 @@ export default function CheckoutPage() {
                   </select>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button className="btn-secondary" type="button" onClick={() => setStep(1)}>
-                  Atrás
-                </button>
-                <button className="btn-primary" type="button" onClick={() => setStep(3)}>
-                  Continuar
-                </button>
-              </div>
-            </>
-          ) : null}
 
-          {step === 3 ? (
-            <>
-              <h2 className="text-lg font-bold">Paso 3: Envío</h2>
-              <p className="text-sm text-slate-600">
-                El envío se realiza con Correo Argentino. Elegí la opción que prefieras.
-              </p>
-
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              {/* shipping quote and options copied from previous step 3 */}
+              <div className="mt-6 rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold">Código postal: {customer.postalCode || "—"}</p>
 
@@ -434,7 +469,7 @@ export default function CheckoutPage() {
                 {quoteLoading ? (
                   <div className="mt-4 grid gap-3">
                     <div className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
-                    <div className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
+                    <div className="h-16 animate-pline bg-slate-100 dark:bg-slate-900" />
                   </div>
                 ) : null}
 
@@ -587,13 +622,13 @@ export default function CheckoutPage() {
               </div>
 
               <div className="flex gap-2">
-                <button className="btn-secondary" type="button" onClick={() => setStep(2)}>
+                <button className="btn-secondary" type="button" onClick={() => setStep(1)}>
                   Atrás
                 </button>
                 <button
                   className="btn-primary"
                   type="button"
-                  onClick={() => setStep(4)}
+                  onClick={() => setStep(3)}
                   disabled={!canContinueFromShipping}
                 >
                   Continuar
@@ -602,9 +637,9 @@ export default function CheckoutPage() {
             </>
           ) : null}
 
-          {step === 4 ? (
+          {step === 3 ? (
             <>
-              <h2 className="text-lg font-bold">Paso 4: Confirmación</h2>
+              <h2 className="text-lg font-bold">Paso 3: Confirmación</h2>
               {payError ? <p className="text-sm text-red-600">{payError}</p> : null}
 
               <p className="text-sm text-slate-600">Por ahora solo MercadoPago.</p>
@@ -613,7 +648,7 @@ export default function CheckoutPage() {
                 <button
                   className="btn-secondary"
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(2)}
                   disabled={payLoading}
                 >
                   Atrás

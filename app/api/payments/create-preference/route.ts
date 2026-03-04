@@ -19,7 +19,12 @@ export async function POST(request: Request) {
     const parsed = createPreferenceSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
+      const flat = parsed.error.flatten();
+      // create a short string summarizing the problem so the client doesn't have to inspect
+      const msg = Object.entries(flat.fieldErrors)
+        .map(([k, v]) => `${k}: ${v?.join(", ")}`)
+        .join("; ");
+      return NextResponse.json({ error: "Invalid payload", message: msg, details: flat }, { status: 400 });
     }
 
     const { customer, items } = parsed.data;
