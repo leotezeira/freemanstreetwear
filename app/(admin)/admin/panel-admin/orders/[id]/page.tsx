@@ -23,9 +23,17 @@ function StatusPill({ status }: { status: string }) {
       ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800"
       : "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   const label =
-    s === "approved" ? "Aprobado" : s === "pending" ? "Pendiente" : s === "rejected" ? "Rechazado" : status || "—";
+    s === "approved"
+      ? "Aprobado"
+      : s === "pending"
+      ? "Pendiente"
+      : s === "rejected"
+      ? "Rechazado"
+      : status || "—";
   return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide ${styles}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide ${styles}`}
+    >
       {label}
     </span>
   );
@@ -49,7 +57,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const { data: order, error } = await supabase
     .from("orders")
     .select(
-      "id, order_number, customer_name, customer_email, customer_phone, shipping_address, postal_code, total_amount, shipping_amount, shipping_type, shipping_price, shipping_agency_code, shipping_id, tracking_number, shipping_status, tracking_events, payment_status, payment_provider, created_at"
+      "id, customer_name, customer_email, customer_phone, shipping_address, postal_code, total_amount, shipping_amount, shipping_type, shipping_price, shipping_agency_code, payment_status, payment_provider, payment_reference, created_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -60,10 +68,6 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     .from("order_items")
     .select("id, quantity, price_at_purchase, products(name, category)")
     .eq("order_id", id);
-
-  const trackingEvents = Array.isArray((order as any).tracking_events)
-    ? ((order as any).tracking_events as { status?: string; date?: string; location?: string }[])
-    : [];
 
   const subtotal = (items ?? []).reduce(
     (sum, it) => sum + Number(it.price_at_purchase) * it.quantity,
@@ -82,7 +86,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             ← Volver a pedidos
           </Link>
           <h1 className="text-2xl font-black tracking-tight">
-            Pedido {(order as any).order_number ?? String(order.id).slice(0, 8).toUpperCase()}
+            Pedido {String(order.id).slice(0, 8).toUpperCase()}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             {order.created_at ? new Date(order.created_at).toLocaleString("es-AR") : "—"}
@@ -106,6 +110,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
         <h2 className="text-base font-bold mb-3">Pago</h2>
         <Row label="Estado" value={<StatusPill status={order.payment_status ?? ""} />} />
         <Row label="Proveedor" value={order.payment_provider} />
+        <Row label="Referencia" value={order.payment_reference} />
         <Row label="Subtotal" value={money(subtotal)} />
         <Row label="Envío" value={money(Number(order.shipping_price ?? order.shipping_amount ?? 0))} />
         <Row
@@ -124,41 +129,14 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               ? "Domicilio"
               : order.shipping_type === "S"
               ? "Sucursal"
-              : order.shipping_type
+              : order.shipping_type ?? "—"
           }
         />
         <Row label="Precio" value={money(Number(order.shipping_price ?? order.shipping_amount ?? 0))} />
-        <Row label="Sucursal" value={order.shipping_agency_code} />
-        <Row label="Shipping ID" value={order.shipping_id} />
-        <Row label="Tracking" value={order.tracking_number} />
-        <Row label="Estado envío" value={order.shipping_status} />
+        <Row label="Sucursal / Código" value={order.shipping_agency_code} />
       </div>
 
-      {/* Tracking events */}
-      {trackingEvents.length > 0 && (
-        <div className="card-base">
-          <h2 className="text-base font-bold mb-3">Historial de tracking</h2>
-          <div className="space-y-3">
-            {trackingEvents
-              .slice()
-              .reverse()
-              .map((ev, i) => (
-                <div key={i} className="flex gap-3 text-sm">
-                  <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-slate-400 dark:bg-slate-600" />
-                  <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">{ev.status ?? "Evento"}</p>
-                    <p className="text-slate-500 dark:text-slate-400">
-                      {ev.date ? String(ev.date) : ""}
-                      {ev.location ? ` · ${ev.location}` : ""}
-                    </p>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Items */}
+      {/* Productos */}
       <div className="card-base">
         <h2 className="text-base font-bold mb-3">Productos</h2>
         <div className="space-y-0">
@@ -178,7 +156,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   )}
                 </div>
                 <div className="text-right text-sm">
-                  <p className="font-semibold">{money(Number(item.price_at_purchase) * item.quantity)}</p>
+                  <p className="font-semibold">
+                    {money(Number(item.price_at_purchase) * item.quantity)}
+                  </p>
                   <p className="text-xs text-slate-500">
                     {item.quantity} × {money(Number(item.price_at_purchase))}
                   </p>
