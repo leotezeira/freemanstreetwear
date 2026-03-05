@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { OrderShippingActions } from "@/components/admin/order-shipping-actions";
 
+export const dynamic = "force-dynamic";
+
 type AdminOrderDetailPageProps = {
   params: Promise<{ id: string }>;
 };
