@@ -8941,7 +8941,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0001",
-    "localidad": "SUCURSAL 1",
+    "localidad": "CORDOBA",
     "calle": "JUSTO DOCTOR JUAN BAUTISTA",
     "numero": "3479",
     "cpa": "X5001ZAA"
@@ -8949,7 +8949,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0003",
-    "localidad": "SUCURSAL 3",
+    "localidad": "CORDOBA",
     "calle": "COLON",
     "numero": "2547",
     "cpa": "X5003ZAA"
@@ -8957,7 +8957,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0006",
-    "localidad": "SUCURSAL 6",
+    "localidad": "CORDOBA",
     "calle": "RODRIGUEZ JUAN",
     "numero": "1351",
     "cpa": "X5006ZAA"
@@ -8965,7 +8965,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0007",
-    "localidad": "(AG. 22) NUÑEZ",
+    "localidad": "CORDOBA",
     "calle": "NUÑEZ RAFAEL",
     "numero": "6237",
     "cpa": "X5001ZAB"
@@ -8973,7 +8973,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0008",
-    "localidad": "SUCURSAL 8",
+    "localidad": "CORDOBA",
     "calle": "CABRERA MONSEÑOR PABLO",
     "numero": "3160",
     "cpa": "X5008ZAA"
@@ -8981,7 +8981,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0009",
-    "localidad": "SUCURSAL 9",
+    "localidad": "CORDOBA",
     "calle": "NUÑEZ RAFAEL",
     "numero": "3782",
     "cpa": "X5009ZAA"
@@ -8989,7 +8989,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0010",
-    "localidad": "SUCURSAL 10",
+    "localidad": "CORDOBA",
     "calle": "FUERZA AEREA ARGENTINA",
     "numero": "2921",
     "cpa": "X5010ZAA"
@@ -8997,7 +8997,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0011",
-    "localidad": "AGENCIA 23 CORDOBA",
+    "localidad": "CORDOBA",
     "calle": "BAS ARTURO M",
     "numero": "251",
     "cpa": "X5000ZAB"
@@ -9005,7 +9005,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0012",
-    "localidad": "SUCURSAL 12",
+    "localidad": "CORDOBA",
     "calle": "ALEM LEANDRO NICEFORO",
     "numero": "753",
     "cpa": "X5012ZAA"
@@ -9013,7 +9013,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0016",
-    "localidad": "SUCURSAL 16",
+    "localidad": "CORDOBA",
     "calle": "VELEZ SARSFIELD DOCTOR DALMACIO",
     "numero": "3458",
     "cpa": "X5016ZAA"
@@ -9021,15 +9021,15 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0025",
-    "localidad": "ALICIA",
-    "calle": "SAN MARTIN GENERAL JOSE DE",
+    "localidad": "CORDOBA",
+    "calle": "SAN MARTIN GENERAL JOSE DE ALICIA",
     "numero": "604",
     "cpa": "X5949ZAA"
   },
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0026",
-    "localidad": "AGUA DE ORO (AG. 58)",
+    "localidad": "AGUA DE ORO",
     "calle": "BUSTOS OBISPO ZENON",
     "numero": "1",
     "cpa": "X5107ZAA"
@@ -9085,7 +9085,7 @@
   {
     "provincia": "CORDOBA",
     "codigo_suc": "X0054",
-    "localidad": "COLONIA CAROYA (AG. 60)",
+    "localidad": "COLONIA CAROYA",
     "calle": "ITALIA",
     "numero": "50",
     "cpa": "X5223ZAA"
@@ -9638,7 +9638,7 @@
     "provincia": "CORDOBA",
     "codigo_suc": "X0306",
     "localidad": "ADELIA MARIA",
-    "calle": "SAN MARTIN GENERAL JOSE DE",
+    "calle": "SAN MARTIN GENERAL JOSE",
     "numero": "",
     "cpa": ""
   },
