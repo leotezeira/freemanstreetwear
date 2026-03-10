@@ -103,12 +103,20 @@ async function removeProduct(formData: FormData) {
 
   const id = String(formData.get("id") ?? "");
   const supabase = getSupabaseAdminClient();
+
+  // Desvincular el producto de order_items para preservar historial de órdenes
+  await supabase.from("order_items").update({ product_id: null }).eq("product_id", id);
+
   const { error } = await supabase.from("products").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/panel-admin/products");
   revalidatePath("/shop");
   revalidatePath("/");
+}
+
+
+
 }
 
 export default async function AdminProductsListPage({ searchParams }: { searchParams: SearchParams }) {
