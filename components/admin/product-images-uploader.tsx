@@ -15,7 +15,7 @@ type ProductImagesUploaderProps = {
 };
 
 const MAX_IMAGES_PER_PRODUCT = 6;
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export function ProductImagesUploader({ productId, existingImages }: ProductImagesUploaderProps) {
