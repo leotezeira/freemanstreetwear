@@ -113,7 +113,6 @@ async function removeProduct(formData: FormData) {
   revalidatePath("/admin/panel-admin/products");
   revalidatePath("/shop");
   revalidatePath("/");
-}
 
 
 
