@@ -24,7 +24,7 @@ import {
 
 const MAX_IMAGES_PER_PRODUCT = 6;
 // Vercel Serverless Functions tienen un límite estricto de body; mantenemos margen.
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 type Props = {
