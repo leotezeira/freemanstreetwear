@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { getSiteContent, type NavLinkItem, type SocialLinkItem } from "@/lib/services/content.service";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { LogoUploader } from "@/components/admin/logo-uploader";
 
 async function upsertSiteContent(key: string, value: unknown) {
   "use server";
@@ -58,7 +59,7 @@ export default async function AdminSettingsPage() {
       <form action={updateBranding} className="card-base grid gap-3">
         <h2 className="text-lg font-bold">Branding</h2>
         <input name="logoText" defaultValue={content.logoText} className="input-base" placeholder="Logo texto" required />
-        <input name="logoUrl" defaultValue={content.logoUrl ?? ""} className="input-base" placeholder="Logo URL (opcional)" />
+        <LogoUploader currentUrl={content.logoUrl} />
         <input name="accentColor" defaultValue={content.accentColor} className="input-base" placeholder="#111827" required />
         <button className="btn-primary w-full md:w-auto" type="submit">
           Guardar branding
