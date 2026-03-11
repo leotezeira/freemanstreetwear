@@ -19,9 +19,8 @@ async function upsertSiteContent(key: string, value: unknown) {
 
 async function updateBranding(formData: FormData) {
   "use server";
-
   await upsertSiteContent("logo_text", String(formData.get("logoText") ?? "Freeman Store"));
-  await upsertSiteContent("logo_url", String(formData.get("logoUrl") ?? ""));
+  // ← NO tocar logo_url aquí, lo maneja LogoUploader
   await upsertSiteContent("accent_color", String(formData.get("accentColor") ?? "#111827"));
 }
 
