@@ -13,6 +13,64 @@ function createOrderNumber(orderId: string) {
   return `FSW-${y}${m}${d}-${orderId.slice(0, 8).toUpperCase()}`;
 }
 
+async function sendOrderNotificationEmail(params: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: string;
+  postalCode: string;
+  orderNumber: string;
+  total: number;
+  shippingPrice: number;
+  orderItems: Array<{ productId: string; quantity: number; priceAtPurchase: number; productName: string }>;
+}) {
+  const serviceId = process.env.EMAILJS_SERVICE_ID;
+  const templateId = process.env.EMAILJS_TEMPLATE_ID;
+  const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+  const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+
+  if (!serviceId || !templateId || !publicKey || !privateKey) {
+    console.warn("[EmailJS] Faltan variables de entorno, se omite el envío de email.");
+    return;
+  }
+
+  const emailjs = await import("@emailjs/nodejs");
+
+  const itemsText = params.orderItems
+    .map(
+      (item) =>
+        `• ${item.quantity}x ${item.productName} — $${item.priceAtPurchase.toLocaleString("es-AR")} c/u`
+    )
+    .join("\n");
+
+  const totalItems = params.orderItems.reduce((sum, i) => sum + i.quantity, 0);
+
+  await emailjs.send(
+    serviceId,
+    templateId,
+    {
+      // Variables que coinciden con tu plantilla de EmailJS
+      name: params.customerName,                         // {{name}}
+      nombre: params.customerName,                       // {{nombre}}
+      email: params.customerEmail,                       // {{email}}
+      telefono: params.customerPhone,                    // {{telefono}}
+      producto: itemsText,                               // {{producto}}
+      cantidad: String(totalItems),                      // {{cantidad}}
+      total: `$${params.total.toLocaleString("es-AR")}`, // {{total}}
+      mensaje: [
+        `Orden: ${params.orderNumber}`,
+        `Dirección: ${params.shippingAddress}, CP ${params.postalCode}`,
+        `Envío: $${params.shippingPrice.toLocaleString("es-AR")}`,
+      ].join(" | "),                                     // {{mensaje}}
+      time: new Date().toLocaleString("es-AR"),          // {{time}}
+    },
+    {
+      publicKey,
+      privateKey,
+    }
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -20,7 +78,6 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       const flat = parsed.error.flatten();
-      // create a short string summarizing the problem so the client doesn't have to inspect
       const msg = Object.entries(flat.fieldErrors)
         .map(([k, v]) => `${k}: ${v?.join(", ")}`)
         .join("; ");
@@ -35,6 +92,7 @@ export async function POST(request: Request) {
     }
 
     const orderItems: Array<{ productId: string; quantity: number; priceAtPurchase: number }> = [];
+    const orderItemsWithNames: Array<{ productId: string; quantity: number; priceAtPurchase: number; productName: string }> = [];
     let subtotal = 0;
 
     for (const item of items) {
@@ -68,6 +126,13 @@ export async function POST(request: Request) {
         productId: product.id,
         quantity: item.quantity,
         priceAtPurchase: Number(product.price),
+      });
+
+      orderItemsWithNames.push({
+        productId: product.id,
+        quantity: item.quantity,
+        priceAtPurchase: Number(product.price),
+        productName: product.name,
       });
 
       subtotal += Number(product.price) * item.quantity;
@@ -110,6 +175,24 @@ export async function POST(request: Request) {
       await getSupabaseAdminClient().from("orders").update({ order_number: orderNumber }).eq("id", order.id);
     } catch {
       // ignore
+    }
+
+    // Enviar email de notificación — no bloquea el flujo de pago si falla.
+    try {
+      await sendOrderNotificationEmail({
+        customerName: customer.name,
+        customerEmail: customer.email,
+        customerPhone: customer.phone,
+        shippingAddress: customer.shippingAddress,
+        postalCode: customer.postalCode,
+        orderNumber,
+        total,
+        shippingPrice,
+        orderItems: orderItemsWithNames,
+      });
+    } catch (emailError) {
+      console.error("[EmailJS] Error al enviar notificación de pedido:", emailError);
+      // No lanzamos el error — el pedido ya fue creado y el pago debe continuar.
     }
 
     const preference = await createMercadoPagoPreference({
