@@ -36,6 +36,9 @@ async function sendOrderNotificationEmail(params: {
 
   const emailjs = await import("@emailjs/nodejs");
 
+  // ✅ API correcta para @emailjs/nodejs v5
+  emailjs.init({ publicKey, privateKey });
+
   const itemsText = params.orderItems
     .map(
       (item) =>
@@ -45,30 +48,21 @@ async function sendOrderNotificationEmail(params: {
 
   const totalItems = params.orderItems.reduce((sum, i) => sum + i.quantity, 0);
 
-  await emailjs.send(
-    serviceId,
-    templateId,
-    {
-      // Variables que coinciden con tu plantilla de EmailJS
-      name: params.customerName,                         // {{name}}
-      nombre: params.customerName,                       // {{nombre}}
-      email: params.customerEmail,                       // {{email}}
-      telefono: params.customerPhone,                    // {{telefono}}
-      producto: itemsText,                               // {{producto}}
-      cantidad: String(totalItems),                      // {{cantidad}}
-      total: `$${params.total.toLocaleString("es-AR")}`, // {{total}}
-      mensaje: [
-        `Orden: ${params.orderNumber}`,
-        `Dirección: ${params.shippingAddress}, CP ${params.postalCode}`,
-        `Envío: $${params.shippingPrice.toLocaleString("es-AR")}`,
-      ].join(" | "),                                     // {{mensaje}}
-      time: new Date().toLocaleString("es-AR"),          // {{time}}
-    },
-    {
-      publicKey,
-      privateKey,
-    }
-  );
+  await emailjs.send(serviceId, templateId, {
+    name: params.customerName,
+    nombre: params.customerName,
+    email: params.customerEmail,
+    telefono: params.customerPhone,
+    producto: itemsText,
+    cantidad: String(totalItems),
+    total: `$${params.total.toLocaleString("es-AR")}`,
+    mensaje: [
+      `Orden: ${params.orderNumber}`,
+      `Dirección: ${params.shippingAddress}, CP ${params.postalCode}`,
+      `Envío: $${params.shippingPrice.toLocaleString("es-AR")}`,
+    ].join(" | "),
+    time: new Date().toLocaleString("es-AR"),
+  });
 }
 
 export async function POST(request: Request) {
