@@ -5,12 +5,15 @@ import { getProductById } from "@/lib/services/products.service";
 import { createOrderWithItems } from "@/lib/services/orders.service";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-function createOrderNumber(orderId: string) {
+let orderCounter = 340;
+
+function createOrderNumber() {
   const date = new Date();
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
-  return `FSW-${y}${m}${d}-${orderId.slice(0, 8).toUpperCase()}`;
+  const num = String(orderCounter++).padStart(4, "0");
+  return `FSW-${y}${m}${d}-${num}`;
 }
 
 async function sendOrderNotificationEmail(params: {
@@ -162,9 +165,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No se pudo crear la orden" }, { status: 500 });
     }
 
-    // Set human-friendly order number after we have a UUID.
-    const orderNumber = createOrderNumber(order.id);
-    // Best-effort; ignore if DB isn't migrated.
+    // Set human-friendly order number
+    const orderNumber = createOrderNumber();
     try {
       await getSupabaseAdminClient().from("orders").update({ order_number: orderNumber }).eq("id", order.id);
     } catch {

@@ -65,8 +65,13 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
   );
   const [manualOrderResult, setManualOrderResult] = useState<{
     orderId: string;
+    orderNumber: string;
     instructions: string;
     methodLabel: string;
+    total: number;
+    customerName: string;
+    customerEmail: string;
+    items: Array<{ name: string; quantity: number; price: number }>;
   } | null>(null);
 
   const [customer, setCustomer] = useState({
@@ -322,8 +327,17 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
         useCartStore.getState().clearCart();
         setManualOrderResult({
           orderId: body.orderId,
+          orderNumber: body.orderNumber,
           instructions: body.instructions ?? "",
           methodLabel: body.methodLabel,
+          total: body.total,
+          customerName: customer.name,
+          customerEmail: customer.email,
+          items: cartItems.map((it) => ({
+            name: it.name,
+            quantity: it.quantity,
+            price: it.price,
+          })),
         });
       }
     } catch (e) {
@@ -331,6 +345,49 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
     } finally {
       setPayLoading(false);
     }
+  }
+
+  function downloadReceipt() {
+    if (!manualOrderResult) return;
+
+    const { orderNumber, customerName, customerEmail, total, items, orderId } = manualOrderResult;
+    const date = new Date().toLocaleString("es-AR");
+
+    const itemsText = items.map((item) => 
+      `  • ${item.quantity} x ${item.name} - $${item.price.toLocaleString("es-AR")}`
+    ).join("\n");
+
+    const receiptContent = `
+╔═══════════════════════════════════════════════════════════╗
+║          FREEMAN STREETWEAR - COMPROBANTE DE COMPRA       ║
+╠═══════════════════════════════════════════════════════════╣
+║  N° de Orden: ${orderNumber.padEnd(44)}║
+║  ID Pedido: ${orderId.slice(0, 8).toUpperCase().padEnd(47)}║
+╠═══════════════════════════════════════════════════════════╣
+║  Fecha: ${date.padEnd(50)}║
+║  Cliente: ${customerName.padEnd(48)}║
+║  Email: ${customerEmail.padEnd(50)}║
+╠═══════════════════════════════════════════════════════════╣
+║  DETALLE DE PRODUCTOS:                                    ║
+╠═══════════════════════════════════════════════════════════╣
+${itemsText}
+╠═══════════════════════════════════════════════════════════╣
+║  TOTAL PAGADO: $${total.toLocaleString("es-AR").padEnd(49)}║
+╚═══════════════════════════════════════════════════════════╝
+
+Gracias por tu compra!
+Visitanos en freemanstreetwear.com
+`.trim();
+
+    const blob = new Blob([receiptContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `comprobante-${orderNumber}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   const canContinueFromShipping = !!selectedShippingType && (selectedShippingType === "D" || !!selectedAgencyCode);
@@ -345,30 +402,30 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
           onClick={() => setStep(1)}
           type="button"
         >
-          Paso 1
+          1. Información
         </button>
         <button
           className={`btn-secondary ${step === 2 ? "opacity-100" : "opacity-70"}`}
           onClick={() => setStep(2)}
           type="button"
         >
-          Paso 2
+          2. Envío
         </button>
         <button
           className={`btn-secondary ${step === 3 ? "opacity-100" : "opacity-70"}`}
           onClick={() => setStep(3)}
           type="button"
         >
-          Paso 3
+          3. Pagos
         </button>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="card-base space-y-4">
-          {/* ── PASO 1: Datos personales ── */}
+          {/* ── PASO 1: Información ── */}
           {step === 1 ? (
             <>
-              <h2 className="text-lg font-bold">Paso 1: Datos personales</h2>
+              <h2 className="text-lg font-bold">1. Información</h2>
               <div className="grid gap-3">
                 <input
                   className="input-base"
@@ -401,10 +458,10 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
             </>
           ) : null}
 
-          {/* ── PASO 2: Dirección y envío ── */}
+          {/* ── PASO 2: Envío ── */}
           {step === 2 ? (
             <>
-              <h2 className="text-lg font-bold">Paso 2: Dirección y envío</h2>
+              <h2 className="text-lg font-bold">2. Envío</h2>
 
               <div className="grid gap-3">
                 {/* Provincia */}
@@ -664,10 +721,10 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
             </>
           ) : null}
 
-          {/* ── PASO 3: Método de pago ── */}
+          {/* ── PASO 3: Pagos ── */}
           {step === 3 ? (
             <>
-              <h2 className="text-lg font-bold">Paso 3: Método de pago</h2>
+              <h2 className="text-lg font-bold">3. Pagos</h2>
 
               {/* Selección de método de pago */}
               {paymentMethods.length === 0 ? (
@@ -756,14 +813,22 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
                     </div>
                   )}
                   <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400">
-                    ID de pedido:{" "}
+                    N° de Orden:{" "}
                     <span className="font-mono font-semibold">
-                      {manualOrderResult.orderId.slice(0, 8).toUpperCase()}
+                      {manualOrderResult.orderNumber}
                     </span>
                   </p>
                   <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
                     Te enviamos un email con los detalles a {customer.email}
                   </p>
+                  
+                  <button
+                    type="button"
+                    onClick={downloadReceipt}
+                    className="mt-3 w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    📄 Descargar Comprobante
+                  </button>
                 </div>
               )}
 

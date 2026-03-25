@@ -4,6 +4,17 @@ import { getProductById } from "@/lib/services/products.service";
 import { createOrderWithItems } from "@/lib/services/orders.service";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
+let orderCounter = 340;
+
+function createOrderNumber() {
+  const date = new Date();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const num = String(orderCounter++).padStart(4, "0");
+  return `FSW-${y}${m}${d}-${num}`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -40,6 +51,7 @@ export async function POST(request: Request) {
       productId: string;
       quantity: number;
       priceAtPurchase: number;
+      productName: string;
     }> = [];
 
     for (const item of items) {
@@ -60,6 +72,7 @@ export async function POST(request: Request) {
         productId: product.id,
         quantity: item.quantity,
         priceAtPurchase: Number(product.price),
+        productName: product.name,
       });
     }
 
@@ -68,6 +81,7 @@ export async function POST(request: Request) {
       (sum, it) => sum + it.priceAtPurchase * it.quantity,
       0
     );
+    const total = subtotal + shippingPrice;
 
     const order = await createOrderWithItems({
       customerName: customer.name,
@@ -75,7 +89,7 @@ export async function POST(request: Request) {
       customerPhone: customer.phone,
       shippingAddress: customer.shippingAddress,
       postalCode: customer.postalCode,
-      totalAmount: subtotal + shippingPrice,
+      totalAmount: total,
       shippingAmount: shippingPrice,
       shippingType: parsed.data.shipping.type,
       shippingPrice,
@@ -84,23 +98,27 @@ export async function POST(request: Request) {
           ? (parsed.data.shipping.agencyCode ?? null)
           : null,
       paymentStatus: "pending",
-      items: orderItems,
+      items: orderItems.map(({ productName, ...rest }) => rest),
     });
 
-    // Actualizar payment_method en la orden
+    // Actualizar payment_method y order_number en la orden
+    const orderNumber = createOrderNumber();
     await supabase
       .from("orders")
       .update({
         payment_method: paymentMethodId,
         payment_provider: method.label,
+        order_number: orderNumber,
       })
       .eq("id", order.id);
 
     return NextResponse.json({
       ok: true,
       orderId: order.id,
+      orderNumber,
       instructions: method.instructions ?? "",
       methodLabel: method.label,
+      total,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error inesperado";
