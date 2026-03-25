@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { ToastProvider } from "@/components/ui/toast";
 import {
   BarChart3,
   BookOpen,
@@ -169,53 +170,55 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <div className="hidden md:fixed md:inset-y-0 md:left-0 md:block">{sidebar}</div>
+    <ToastProvider>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <div className="hidden md:fixed md:inset-y-0 md:left-0 md:block">{sidebar}</div>
 
-      {sidebarOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Cerrar"
-          />
-          <div className="absolute inset-y-0 left-0">{sidebar}</div>
-        </div>
-      ) : null}
-
-      <div className="md:pl-72">
-        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-8">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Abrir menú"
-              >
-                <Icon icon={Menu} />
-              </button>
-              <h1 className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-50">{title}</h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="btn-secondary px-3 py-2"
-                onClick={() => setDarkMode((v) => !v)}
-                aria-label="Alternar modo oscuro"
-              >
-                <Icon icon={darkMode ? Moon : Sun} />
-              </button>
-            </div>
+        {sidebarOpen ? (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Cerrar"
+            />
+            <div className="absolute inset-y-0 left-0">{sidebar}</div>
           </div>
-        </header>
+        ) : null}
 
-        <main className="px-4 py-6 md:px-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
-        </main>
+        <div className="md:pl-72">
+          <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+            <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-8">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700"
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="Abrir menú"
+                >
+                  <Icon icon={Menu} />
+                </button>
+                <h1 className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-50">{title}</h1>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-secondary px-3 py-2"
+                  onClick={() => setDarkMode((v) => !v)}
+                  aria-label="Alternar modo oscuro"
+                >
+                  <Icon icon={darkMode ? Moon : Sun} />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="px-4 py-6 md:px-8">
+            <div className="mx-auto w-full max-w-7xl">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }
