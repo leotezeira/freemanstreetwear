@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
 import { LoaderCircle, Truck, CheckCircle2 } from "lucide-react";
 import type { PaymentMethod } from "@/lib/services/payment-methods.service";
+import type { ShippingMethod } from "@/lib/services/shipping-methods.service";
 
 type Step = 1 | 2 | 3;
 
@@ -25,21 +26,6 @@ type BranchAgency = {
   province: string;
   cpa: string;
 };
-
-const DEFAULT_SHIPPING_OPTIONS: ShippingOption[] = [
-  {
-    shippingType: "D",
-    serviceName: "Envío a domicilio",
-    price: 7500,
-    etaDays: null,
-  },
-  {
-    shippingType: "S",
-    serviceName: "Envío a sucursal",
-    price: 6500,
-    etaDays: null,
-  },
-];
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
@@ -77,9 +63,10 @@ const PROVINCES = [
 
 type Props = {
   paymentMethods: PaymentMethod[];
+  shippingMethods: ShippingMethod[];
 };
 
-export default function CheckoutClient({ paymentMethods }: Props) {
+export default function CheckoutClient({ paymentMethods, shippingMethods }: Props) {
   const router = useRouter();
   const toast = useToast();
   const cartItems = useCartStore((s) => s.items);
@@ -211,7 +198,17 @@ export default function CheckoutClient({ paymentMethods }: Props) {
       if (!customer.postalCode.trim()) throw new Error("Ingresá un código postal");
       if (cartItems.length === 0) throw new Error("El carrito está vacío");
 
-      const options = [...DEFAULT_SHIPPING_OPTIONS].sort((a, b) => a.price - b.price);
+      // Convertir ShippingMethod a ShippingOption
+      const options: ShippingOption[] = shippingMethods.map((m) => ({
+        shippingType: m.type,
+        serviceName: m.name,
+        price: m.price,
+        etaDays: m.etaDays,
+      })).sort((a, b) => a.price - b.price);
+
+      if (options.length === 0) {
+        throw new Error("No hay métodos de envío disponibles");
+      }
 
       setShippingOptions(options);
 
@@ -551,12 +548,10 @@ export default function CheckoutClient({ paymentMethods }: Props) {
                             </span>
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                                {opt.shippingType === "D"
-                                  ? "Envío a domicilio"
-                                  : "Envío a sucursal"}
+                                {opt.serviceName}
                               </p>
                               <p className="text-sm text-slate-600 dark:text-slate-300">
-                                {opt.serviceName}
+                                {opt.shippingType === "D" ? "Domicilio" : "Sucursal"}
                                 {typeof opt.etaDays === "number" ? ` · ${opt.etaDays} días` : ""}
                               </p>
                             </div>
