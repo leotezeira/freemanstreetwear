@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
@@ -8,6 +8,8 @@ import { Icon } from "@/components/ui/icon";
 import { LoaderCircle, Truck, CheckCircle2 } from "lucide-react";
 import type { PaymentMethod } from "@/lib/services/payment-methods.service";
 import type { ShippingMethod } from "@/lib/services/shipping-methods.service";
+import provinciasData from "@/data/provincias.json";
+import localidadesData from "@/data/localidades.json";
 
 type Step = 1 | 2 | 3;
 
@@ -27,39 +29,26 @@ type BranchAgency = {
   cpa: string;
 };
 
+type Provincia = {
+  code: string;
+  name: string;
+  localities: { name: string; postalCodes: string[] }[];
+};
+
+type Localidad = {
+  provinceCode: string;
+  name: string;
+  postalCodes: string[];
+};
+
+const PROVINCES = provinciasData as Provincia[];
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
   }).format(value);
 }
-
-const PROVINCES = [
-  { code: "02", name: "CABA" },
-  { code: "06", name: "Buenos Aires" },
-  { code: "10", name: "Catamarca" },
-  { code: "14", name: "Córdoba" },
-  { code: "18", name: "Corrientes" },
-  { code: "22", name: "Chaco" },
-  { code: "26", name: "Chubut" },
-  { code: "30", name: "Entre Ríos" },
-  { code: "34", name: "Formosa" },
-  { code: "38", name: "Jujuy" },
-  { code: "42", name: "La Pampa" },
-  { code: "46", name: "La Rioja" },
-  { code: "50", name: "Mendoza" },
-  { code: "54", name: "Misiones" },
-  { code: "58", name: "Neuquén" },
-  { code: "62", name: "Río Negro" },
-  { code: "66", name: "Salta" },
-  { code: "70", name: "San Juan" },
-  { code: "74", name: "San Luis" },
-  { code: "78", name: "Santa Cruz" },
-  { code: "82", name: "Santa Fe" },
-  { code: "86", name: "Santiago del Estero" },
-  { code: "90", name: "Tucumán" },
-  { code: "94", name: "Tierra del Fuego" },
-] as const;
 
 type Props = {
   paymentMethods: PaymentMethod[];
@@ -92,11 +81,13 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
     name: "",
     email: "",
     phone: "",
-    shippingAddress: "",
+    provinceCode: "",
+    localityName: "",
     postalCode: "",
-    provinceCode: "02",
-    locality: "",
+    shippingAddress: "",
   });
+
+  const [localities, setLocalities] = useState<{ name: string; postalCodes: string[] }[]>([]);
 
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -115,6 +106,20 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
 
   const shipping = useMemo(() => selectedShippingPrice ?? 0, [selectedShippingPrice]);
   const total = cartSubtotal + shipping;
+
+  // Cargar localidades cuando cambia la provincia
+  useEffect(() => {
+    if (customer.provinceCode) {
+      const provincia = PROVINCES.find((p) => p.code === customer.provinceCode);
+      if (provincia) {
+        setLocalities(provincia.localities || []);
+        // Resetear localidad y CP si cambia la provincia
+        setCustomer((p) => ({ ...p, localityName: "", postalCode: "" }));
+      }
+    } else {
+      setLocalities([]);
+    }
+  }, [customer.provinceCode]);
 
   async function loadBranchProvinces() {
     setBranchLoading(true);
@@ -263,7 +268,7 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
           "customer.phone": "Teléfono",
           "customer.shippingAddress": "Dirección",
           "customer.postalCode": "Código postal",
-          "customer.locality": "Localidad",
+          "customer.localityName": "Localidad",
           "shipping.price": "Precio de envío",
         };
         for (const [key, friendly] of Object.entries(names)) {
@@ -292,7 +297,7 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
         !customer.phone ||
         !customer.shippingAddress ||
         !customer.postalCode ||
-        !customer.locality
+        !customer.localityName
       ) {
         throw new Error("Completá todos los datos requeridos");
       }
@@ -426,44 +431,75 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
               <h2 className="text-lg font-bold">Paso 2: Dirección y envío</h2>
 
               <div className="grid gap-3">
-                <input
-                  className="input-base"
-                  type="text"
-                  placeholder="Dirección"
-                  value={customer.shippingAddress}
-                  onChange={(e) =>
-                    setCustomer((p) => ({ ...p, shippingAddress: e.target.value }))
-                  }
-                  required
-                />
-                <input
-                  className="input-base"
-                  type="text"
-                  placeholder="Localidad"
-                  value={customer.locality}
-                  onChange={(e) => setCustomer((p) => ({ ...p, locality: e.target.value }))}
-                />
-                <input
-                  className="input-base"
-                  type="text"
-                  placeholder="Código postal"
-                  value={customer.postalCode}
-                  onChange={(e) => setCustomer((p) => ({ ...p, postalCode: e.target.value }))}
-                  required
-                />
+                {/* Provincia */}
                 <div className="grid gap-1">
                   <label className="text-sm font-semibold text-slate-700">Provincia</label>
                   <select
                     className="input-base"
                     value={customer.provinceCode}
                     onChange={(e) => setCustomer((p) => ({ ...p, provinceCode: e.target.value }))}
+                    required
                   >
+                    <option value="">Seleccioná una provincia</option>
                     {PROVINCES.map((p) => (
                       <option key={p.code} value={p.code}>
                         {p.name}
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Código Postal */}
+                <div className="grid gap-1">
+                  <label className="text-sm font-semibold text-slate-700">Código Postal</label>
+                  <input
+                    className="input-base"
+                    type="text"
+                    placeholder="Ej: 1425"
+                    value={customer.postalCode}
+                    onChange={(e) => setCustomer((p) => ({ ...p, postalCode: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                {/* Localidad */}
+                <div className="grid gap-1">
+                  <label className="text-sm font-semibold text-slate-700">Localidad</label>
+                  <select
+                    className="input-base"
+                    value={customer.localityName}
+                    onChange={(e) => setCustomer((p) => ({ ...p, localityName: e.target.value }))}
+                    disabled={!customer.provinceCode || localities.length === 0}
+                    required
+                  >
+                    <option value="">Seleccioná una localidad</option>
+                    {localities.map((loc) => (
+                      <option key={loc.name} value={loc.name}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!customer.provinceCode && (
+                    <p className="text-xs text-slate-500">Primero seleccioná una provincia</p>
+                  )}
+                  {customer.provinceCode && localities.length === 0 && (
+                    <p className="text-xs text-amber-600">
+                      No hay localidades cargadas para esta provincia. Completá el archivo localidades.json
+                    </p>
+                  )}
+                </div>
+
+                {/* Dirección */}
+                <div className="grid gap-1">
+                  <label className="text-sm font-semibold text-slate-700">Dirección</label>
+                  <input
+                    className="input-base"
+                    type="text"
+                    placeholder="Calle y altura"
+                    value={customer.shippingAddress}
+                    onChange={(e) => setCustomer((p) => ({ ...p, shippingAddress: e.target.value }))}
+                    required
+                  />
                 </div>
               </div>
 
