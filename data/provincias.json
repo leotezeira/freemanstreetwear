@@ -1,12 +1,26 @@
 [
-  {
-    "code": "02",
-    "name": "CABA",
-    "localities": []
-  },
-  {
-    "code": "06",
-    "name": "Buenos Aires",
-    "localities": []
-  }
+  { "code": "01", "name": "Buenos Aires" },
+  { "code": "02", "name": "Catamarca" },
+  { "code": "03", "name": "Chaco" },
+  { "code": "04", "name": "Chubut" },
+  { "code": "05", "name": "Córdoba" },
+  { "code": "06", "name": "Corrientes" },
+  { "code": "07", "name": "Entre Ríos" },
+  { "code": "08", "name": "Formosa" },
+  { "code": "09", "name": "Jujuy" },
+  { "code": "10", "name": "La Pampa" },
+  { "code": "11", "name": "La Rioja" },
+  { "code": "12", "name": "Mendoza" },
+  { "code": "13", "name": "Misiones" },
+  { "code": "14", "name": "Neuquén" },
+  { "code": "15", "name": "Río Negro" },
+  { "code": "16", "name": "Salta" },
+  { "code": "17", "name": "San Juan" },
+  { "code": "18", "name": "San Luis" },
+  { "code": "19", "name": "Santa Cruz" },
+  { "code": "20", "name": "Santa Fe" },
+  { "code": "21", "name": "Santiago del Estero" },
+  { "code": "22", "name": "Tierra del Fuego, Antártida e Islas del Atlántico Sur" },
+  { "code": "23", "name": "Tucumán" },
+  { "code": "24", "name": "Ciudad Autónoma de Buenos Aires (CABA)" }
 ]

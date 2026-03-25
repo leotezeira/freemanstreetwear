@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
@@ -9,7 +9,6 @@ import { LoaderCircle, Truck, CheckCircle2 } from "lucide-react";
 import type { PaymentMethod } from "@/lib/services/payment-methods.service";
 import type { ShippingMethod } from "@/lib/services/shipping-methods.service";
 import provinciasData from "@/data/provincias.json";
-import localidadesData from "@/data/localidades.json";
 
 type Step = 1 | 2 | 3;
 
@@ -32,13 +31,6 @@ type BranchAgency = {
 type Provincia = {
   code: string;
   name: string;
-  localities: { name: string; postalCodes: string[] }[];
-};
-
-type Localidad = {
-  provinceCode: string;
-  name: string;
-  postalCodes: string[];
 };
 
 const PROVINCES = provinciasData as Provincia[];
@@ -87,8 +79,6 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
     shippingAddress: "",
   });
 
-  const [localities, setLocalities] = useState<{ name: string; postalCodes: string[] }[]>([]);
-
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
@@ -106,20 +96,6 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
 
   const shipping = useMemo(() => selectedShippingPrice ?? 0, [selectedShippingPrice]);
   const total = cartSubtotal + shipping;
-
-  // Cargar localidades cuando cambia la provincia
-  useEffect(() => {
-    if (customer.provinceCode) {
-      const provincia = PROVINCES.find((p) => p.code === customer.provinceCode);
-      if (provincia) {
-        setLocalities(provincia.localities || []);
-        // Resetear localidad y CP si cambia la provincia
-        setCustomer((p) => ({ ...p, localityName: "", postalCode: "" }));
-      }
-    } else {
-      setLocalities([]);
-    }
-  }, [customer.provinceCode]);
 
   async function loadBranchProvinces() {
     setBranchLoading(true);
@@ -449,44 +425,30 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
                   </select>
                 </div>
 
+                {/* Localidad */}
+                <div className="grid gap-1">
+                  <label className="text-sm font-semibold text-slate-700">Localidad</label>
+                  <input
+                    className="input-base"
+                    type="text"
+                    placeholder="Ej: Palermo"
+                    value={customer.localityName}
+                    onChange={(e) => setCustomer((p) => ({ ...p, localityName: e.target.value }))}
+                    required
+                  />
+                </div>
+
                 {/* Código Postal */}
                 <div className="grid gap-1">
                   <label className="text-sm font-semibold text-slate-700">Código Postal</label>
                   <input
                     className="input-base"
                     type="text"
-                    placeholder="Ej: 1425"
+                    placeholder="Ej: C1425"
                     value={customer.postalCode}
                     onChange={(e) => setCustomer((p) => ({ ...p, postalCode: e.target.value }))}
                     required
                   />
-                </div>
-
-                {/* Localidad */}
-                <div className="grid gap-1">
-                  <label className="text-sm font-semibold text-slate-700">Localidad</label>
-                  <select
-                    className="input-base"
-                    value={customer.localityName}
-                    onChange={(e) => setCustomer((p) => ({ ...p, localityName: e.target.value }))}
-                    disabled={!customer.provinceCode || localities.length === 0}
-                    required
-                  >
-                    <option value="">Seleccioná una localidad</option>
-                    {localities.map((loc) => (
-                      <option key={loc.name} value={loc.name}>
-                        {loc.name}
-                      </option>
-                    ))}
-                  </select>
-                  {!customer.provinceCode && (
-                    <p className="text-xs text-slate-500">Primero seleccioná una provincia</p>
-                  )}
-                  {customer.provinceCode && localities.length === 0 && (
-                    <p className="text-xs text-amber-600">
-                      No hay localidades cargadas para esta provincia. Completá el archivo localidades.json
-                    </p>
-                  )}
                 </div>
 
                 {/* Dirección */}
