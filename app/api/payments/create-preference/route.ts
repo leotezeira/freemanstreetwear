@@ -88,9 +88,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Falta seleccionar sucursal" }, { status: 400 });
     }
 
-    const orderItems: Array<{ productId: string; quantity: number; priceAtPurchase: number }> = [];
-    const orderItemsWithNames: Array<{ productId: string; quantity: number; priceAtPurchase: number; productName: string }> = [];
+    const orderItems: Array<{ productId: string; quantity: number; priceAtPurchase: number; variantId?: string; size?: string; color?: string }> = [];
+    const orderItemsWithNames: Array<{ productId: string; quantity: number; priceAtPurchase: number; productName: string; variantId?: string; size?: string; color?: string }> = [];
     let subtotal = 0;
+
+    const supabase = getSupabaseAdminClient();
 
     for (const item of items) {
       const product = await getProductById(item.productId);
@@ -113,6 +115,23 @@ export async function POST(request: Request) {
         );
       }
 
+      // Obtener variante si existe
+      let variantSize: string | undefined;
+      let variantColor: string | undefined;
+      
+      if (item.variantId) {
+        const { data: variant } = await supabase
+          .from("product_variants")
+          .select("size, color")
+          .eq("id", item.variantId)
+          .single();
+        
+        if (variant) {
+          variantSize = variant.size;
+          variantColor = variant.color;
+        }
+      }
+
       preferenceItems.push({
         title: product.name,
         quantity: item.quantity,
@@ -123,6 +142,9 @@ export async function POST(request: Request) {
         productId: product.id,
         quantity: item.quantity,
         priceAtPurchase: Number(product.price),
+        variantId: item.variantId ?? undefined,
+        size: variantSize,
+        color: variantColor,
       });
 
       orderItemsWithNames.push({
@@ -130,6 +152,9 @@ export async function POST(request: Request) {
         quantity: item.quantity,
         priceAtPurchase: Number(product.price),
         productName: product.name,
+        variantId: item.variantId ?? undefined,
+        size: variantSize,
+        color: variantColor,
       });
 
       subtotal += Number(product.price) * item.quantity;

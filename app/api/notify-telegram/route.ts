@@ -26,7 +26,13 @@ export async function POST(req: NextRequest) {
   const dateStr = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Cordoba" });
 
   const itemsText = (order.items ?? [])
-    .map((it: any) => `  - ${it.quantity}x ${it.name} - $${Number(it.price).toLocaleString("es-AR")}`)
+    .map((it: any) => {
+      const variantInfo = [];
+      if (it.size) variantInfo.push(`Talle: ${it.size}`);
+      if (it.color) variantInfo.push(`Color: ${it.color}`);
+      const variantStr = variantInfo.length > 0 ? ` (${variantInfo.join(', ')})` : '';
+      return `  - ${it.quantity}x ${it.name}${variantStr} - $${Number(it.price).toLocaleString("es-AR")}`;
+    })
     .join("\n");
 
   const message = [

@@ -24,7 +24,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
 
   const { data: items } = await supabase
     .from("order_items")
-    .select("id, quantity, price_at_purchase, products(name, category)")
+    .select("id, quantity, price_at_purchase, size, color, products(name, category)")
     .eq("order_id", id);
 
   // Normalize products - Supabase returns array but type expects object

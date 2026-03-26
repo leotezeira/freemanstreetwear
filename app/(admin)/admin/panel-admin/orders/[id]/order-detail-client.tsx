@@ -10,6 +10,8 @@ type OrderItem = {
   quantity: number;
   price_at_purchase: number;
   products: { name?: string; category?: string } | null;
+  size?: string | null;
+  color?: string | null;
 };
 
 type Order = {
@@ -350,6 +352,20 @@ export default function AdminOrderDetailClient({
                   </p>
                   {prod?.category && (
                     <p className="text-xs text-slate-500">{prod.category}</p>
+                  )}
+                  {(item.size || item.color) && (
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {item.size && (
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          Talle: {item.size}
+                        </span>
+                      )}
+                      {item.color && (
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          Color: {item.color}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="text-right text-sm">

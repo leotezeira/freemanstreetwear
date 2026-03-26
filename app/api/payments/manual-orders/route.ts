@@ -62,7 +62,12 @@ export async function POST(request: Request) {
       quantity: number;
       priceAtPurchase: number;
       productName: string;
+      variantId?: string;
+      size?: string;
+      color?: string;
     }> = [];
+
+    const supabase = getSupabaseAdminClient();
 
     for (const item of items) {
       const product = await getProductById(item.productId);
@@ -78,11 +83,32 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+
+      // Obtener variante si existe
+      let variantSize: string | undefined;
+      let variantColor: string | undefined;
+      
+      if (item.variantId) {
+        const { data: variant } = await supabase
+          .from("product_variants")
+          .select("size, color")
+          .eq("id", item.variantId)
+          .single();
+        
+        if (variant) {
+          variantSize = variant.size;
+          variantColor = variant.color;
+        }
+      }
+
       orderItems.push({
         productId: product.id,
         quantity: item.quantity,
         priceAtPurchase: Number(product.price),
         productName: product.name,
+        variantId: item.variantId ?? undefined,
+        size: variantSize,
+        color: variantColor,
       });
     }
 
@@ -108,7 +134,12 @@ export async function POST(request: Request) {
           ? (parsed.data.shipping.agencyCode ?? null)
           : null,
       paymentStatus: "pending",
-      items: orderItems.map(({ productName: _name, ...rest }) => rest),
+      items: orderItems.map(({ productName, variantId, size, color, ...rest }) => ({
+        ...rest,
+        variantId,
+        size,
+        color,
+      })),
     });
 
     console.log("[manual-orders] Orden creada:", order?.id);

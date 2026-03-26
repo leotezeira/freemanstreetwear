@@ -17,6 +17,9 @@ type CreateOrderInput = {
     productId: string;
     quantity: number;
     priceAtPurchase: number;
+    variantId?: string;
+    size?: string;
+    color?: string;
   }>;
 };
 
@@ -89,6 +92,9 @@ export async function createOrderWithItems(input: CreateOrderInput) {
     product_id: item.productId,
     quantity: item.quantity,
     price_at_purchase: item.priceAtPurchase,
+    variant_id: item.variantId ?? null,
+    size: item.size ?? null,
+    color: item.color ?? null,
   }));
 
   const { error: itemsError } = await supabase.from("order_items").insert(orderItemsPayload);
