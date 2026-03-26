@@ -73,6 +73,11 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
     customerEmail: string;
     items: Array<{ name: string; quantity: number; price: number }>;
   } | null>(null);
+  
+  // Manual payment confirmation modal
+  const [showManualPaymentModal, setShowManualPaymentModal] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [pendingManualOrder, setPendingManualOrder] = useState<any>(null);
 
   const [customer, setCustomer] = useState({
     name: "",
@@ -311,40 +316,76 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
 
         window.location.href = body.initPoint;
       } else {
-        // Pago manual (transferencia, domicilio, etc.)
-        const response = await fetch("/api/payments/manual-order", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ...payload, paymentMethodId: selectedPaymentMethod }),
-        });
-
-        const body = (await response.json().catch(() => null)) as any;
-        if (!response.ok) {
-          throw new Error(body?.error || "No se pudo crear el pedido");
+        // Pago manual (transferencia, domicilio, etc.) - Mostrar modal de confirmación
+        const method = paymentMethods.find((m) => m.id === selectedPaymentMethod);
+        if (!method) {
+          throw new Error("Método de pago no encontrado");
         }
-
-        // Limpiar carrito y mostrar confirmación
-        useCartStore.getState().clearCart();
-        setManualOrderResult({
-          orderId: body.orderId,
-          orderNumber: body.orderNumber,
-          instructions: body.instructions ?? "",
-          methodLabel: body.methodLabel,
-          total: body.total,
-          customerName: customer.name,
-          customerEmail: customer.email,
-          items: cartItems.map((it) => ({
-            name: it.name,
-            quantity: it.quantity,
-            price: it.unitPrice,
-          })),
+        
+        // Guardar datos pendientes para crear la orden después de confirmar
+        setPendingManualOrder({
+          payload,
+          method,
         });
+        setShowManualPaymentModal(true);
       }
     } catch (e) {
       setPayError(e instanceof Error ? e.message : "No se pudo procesar el pago");
     } finally {
       setPayLoading(false);
     }
+  }
+
+  async function confirmManualPayment() {
+    if (!pendingManualOrder) return;
+    
+    setConfirmingPayment(true);
+    try {
+      const { payload, method } = pendingManualOrder;
+      
+      const response = await fetch("/api/payments/manual-order", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...payload, paymentMethodId: method.id }),
+      });
+
+      const body = (await response.json().catch(() => null)) as any;
+      if (!response.ok) {
+        throw new Error(body?.error || "No se pudo crear el pedido");
+      }
+
+      // Limpiar carrito y mostrar confirmación
+      useCartStore.getState().clearCart();
+      setManualOrderResult({
+        orderId: body.orderId,
+        orderNumber: body.orderNumber,
+        instructions: body.instructions ?? "",
+        methodLabel: body.methodLabel,
+        total: body.total,
+        customerName: customer.name,
+        customerEmail: customer.email,
+        items: cartItems.map((it) => ({
+          name: it.name,
+          quantity: it.quantity,
+          price: it.unitPrice,
+        })),
+      });
+      setShowManualPaymentModal(false);
+      setPendingManualOrder(null);
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "No se pudo procesar el pago");
+    } finally {
+      setConfirmingPayment(false);
+    }
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+    toast.push({
+      variant: "success",
+      title: "Copiado",
+      description: "Copiado al portapapeles",
+    });
   }
 
   function downloadReceipt() {
@@ -872,6 +913,92 @@ Visitanos en freemanstreetwear.com
               )}
             </>
           ) : null}
+          
+          {/* Modal de confirmación de pago manual */}
+          {showManualPaymentModal && pendingManualOrder && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-950">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                  Confirmar Pago
+                </h3>
+                
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Método de pago
+                    </p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                      {pendingManualOrder.method.label}
+                    </p>
+                  </div>
+                  
+                  {pendingManualOrder.method.instructions && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                        Instrucciones
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {pendingManualOrder.method.instructions.split('\n').map((line: string, idx: number) => {
+                          const isAlias = line.toLowerCase().includes('alias');
+                          return (
+                            <div key={idx} className="flex items-center justify-between gap-2">
+                              <p className="text-sm text-amber-800 dark:text-amber-200">
+                                {line}
+                              </p>
+                              {isAlias && (
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(line.split(':')[1]?.trim() || '')}
+                                  className="shrink-0 rounded-lg bg-amber-200 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-300 dark:bg-amber-800 dark:text-amber-200 dark:hover:bg-amber-700"
+                                >
+                                  Copiar
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                      Total a pagar
+                    </p>
+                    <p className="text-lg font-bold text-emerald-800 dark:text-emerald-300">
+                      ${(cartSubtotal + pendingManualOrder.payload.shipping.price).toLocaleString("es-AR")}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowManualPaymentModal(false);
+                      setPendingManualOrder(null);
+                    }}
+                    disabled={confirmingPayment}
+                    className="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmManualPayment}
+                    disabled={confirmingPayment}
+                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {confirmingPayment ? "Procesando..." : "✅ Ya pagué"}
+                  </button>
+                </div>
+                
+                <p className="mt-3 text-xs text-center text-slate-500 dark:text-slate-400">
+                  Al confirmar, declarás que completaste el pago según las instrucciones.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ── RESUMEN LATERAL ── */}
