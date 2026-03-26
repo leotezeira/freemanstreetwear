@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getBundles,
   createBundle,
-  type BundleFormData,
 } from "@/lib/services/bundles.service";
+import type { BundleFormData } from "@/types/bundle";
 
 export async function GET() {
   try {

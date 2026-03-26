@@ -3,8 +3,8 @@ import {
   getBundleById,
   updateBundle,
   deleteBundle,
-  type BundleFormData,
 } from "@/lib/services/bundles.service";
+import type { BundleFormData } from "@/types/bundle";
 
 export async function GET(
   _request: NextRequest,
