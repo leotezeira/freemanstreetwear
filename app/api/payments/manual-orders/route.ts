@@ -67,8 +67,6 @@ export async function POST(request: Request) {
       color?: string;
     }> = [];
 
-    const supabase = getSupabaseAdminClient();
-
     for (const item of items) {
       const product = await getProductById(item.productId);
       if (!product) {
