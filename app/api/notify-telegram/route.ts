@@ -4,6 +4,7 @@ export async function POST(req: NextRequest) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
+  // Skip if credentials not configured
   if (!botToken || !chatId) {
     console.warn("[Telegram] Variables de entorno no configuradas");
     return NextResponse.json({ success: true, skipped: true });
@@ -18,25 +19,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Faltan datos del pedido" }, { status: 400 });
   }
 
-  const lines = [
-    `🛒 *Nuevo pedido* #${String(order.orderId ?? "").slice(0, 8).toUpperCase()}`,
-    ``,
+  const shippingTypeLabel = order.shippingType === "D" ? "Domicilio" : "Sucursal";
+  const shippingPriceFormatted = Number(order.shippingPrice).toLocaleString("es-AR");
+  const totalFormatted = Number(order.total).toLocaleString("es-AR");
+  const orderIdShort = String(order.orderId ?? "").slice(0, 8).toUpperCase();
+  const dateStr = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Cordoba" });
+
+  const itemsText = (order.items ?? [])
+    .map((it: any) => `  - ${it.quantity}x ${it.name} - $${Number(it.price).toLocaleString("es-AR")}`)
+    .join("\n");
+
+  const message = [
+    `🛒 *NUEVO PEDIDO* #${orderIdShort}`,
+    "",
     `👤 *Cliente:* ${order.customerName}`,
     `📧 *Email:* ${order.customerEmail}`,
     `📱 *Teléfono:* ${order.customerPhone}`,
-    ``,
-    `📦 *Productos:*`,
-    ...(order.items ?? []).map(
-      (it: any) => `  • ${it.quantity}x ${it.name} — $${Number(it.price).toLocaleString("es-AR")}`
-    ),
-    ``,
-    `🚚 *Envío:* ${order.shippingType === "D" ? "Domicilio" : "Sucursal"} — $${Number(order.shippingPrice).toLocaleString("es-AR")}`,
-    `💰 *Total:* $${Number(order.total).toLocaleString("es-AR")}`,
+    "",
+    `📦 *PRODUCTOS:*`,
+    itemsText || "  (sin productos)",
+    "",
+    `🚚 *Envío:* ${shippingTypeLabel} - $${shippingPriceFormatted}`,
+    `💰 *TOTAL:* $${totalFormatted}`,
     `💳 *Pago:* ${order.paymentMethod}`,
-    ``,
-    `📍 *Dirección:* ${order.shippingAddress}, CP ${order.postalCode}`,
-    ``,
-    `📅 ${new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Cordoba" })}`,
+    "",
+    `📍 *Direccion:* ${order.shippingAddress}, CP ${order.postalCode}`,
+    "",
+    `📅 ${dateStr}`,
   ].join("\n");
 
   try {
@@ -45,20 +54,20 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: lines,
+        text: message,
         parse_mode: "Markdown",
       }),
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      console.error("[Telegram] Error:", err);
+      const errText = await res.text();
+      console.error("[Telegram] API error:", errText);
       return NextResponse.json({ error: "Error enviando a Telegram" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[Telegram] Excepción:", error);
+    console.error("[Telegram] Exception:", error);
     return NextResponse.json({ error: "Error enviando a Telegram" }, { status: 500 });
   }
 }
