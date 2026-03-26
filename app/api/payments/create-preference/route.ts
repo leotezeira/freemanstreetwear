@@ -191,6 +191,35 @@ export async function POST(request: Request) {
       // No lanzamos el error — el pedido ya fue creado y el pago debe continuar.
     }
 
+    // Telegram — igual que el email, no bloquea
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/notify-telegram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order: {
+            orderId: order.id,
+            customerName: customer.name,
+            customerEmail: customer.email,
+            customerPhone: customer.phone,
+            shippingAddress: customer.shippingAddress,
+            postalCode: customer.postalCode,
+            shippingType: parsed.data.shipping.type,
+            shippingPrice,
+            total,
+            paymentMethod: "MercadoPago",
+            items: orderItemsWithNames.map((it) => ({
+              name: it.productName,
+              quantity: it.quantity,
+              price: it.priceAtPurchase,
+            })),
+          },
+        }),
+      });
+    } catch (e) {
+      console.error("[Telegram] No se pudo notificar:", e);
+    }
+
     const preference = await createMercadoPagoPreference({
       items: preferenceItems,
       payer: {
