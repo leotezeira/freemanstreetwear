@@ -13,6 +13,7 @@ import {
   Menu,
   Moon,
   Package,
+  Package2,
   Settings,
   Shield,
   ShoppingCart,
@@ -47,6 +48,7 @@ const NAV: AdminNavSection[] = [
     label: "Catálogo",
     items: [
       { label: "Productos", href: "/admin/panel-admin/products", icon: Package },
+      { label: "Bundles", href: "/admin/panel-admin/bundles", icon: Package2 },
       { label: "Variantes", href: "/admin/panel-admin/variants", icon: Tags },
       { label: "Categorías", href: "/admin/panel-admin/categories", icon: Folder },
     ],
