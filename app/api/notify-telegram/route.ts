@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const TELEGRAM_API = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-
 export async function POST(req: NextRequest) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!botToken || !chatId) {
+    console.warn("[Telegram] Variables de entorno no configuradas");
+    return NextResponse.json({ success: true, skipped: true });
+  }
+
+  const TELEGRAM_API = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
   const body = await req.json();
   const { order } = body;
+
+  if (!order) {
+    return NextResponse.json({ error: "Faltan datos del pedido" }, { status: 400 });
+  }
 
   const lines = [
     `🛒 *Nuevo pedido* #${String(order.orderId ?? "").slice(0, 8).toUpperCase()}`,
@@ -27,21 +39,26 @@ export async function POST(req: NextRequest) {
     `📅 ${new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Cordoba" })}`,
   ].join("\n");
 
-  const res = await fetch(TELEGRAM_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: process.env.TELEGRAM_CHAT_ID,
-      text: lines,
-      parse_mode: "Markdown",
-    }),
-  });
+  try {
+    const res = await fetch(TELEGRAM_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: lines,
+        parse_mode: "Markdown",
+      }),
+    });
 
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("[Telegram] Error:", err);
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("[Telegram] Error:", err);
+      return NextResponse.json({ error: "Error enviando a Telegram" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[Telegram] Excepción:", error);
     return NextResponse.json({ error: "Error enviando a Telegram" }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }
