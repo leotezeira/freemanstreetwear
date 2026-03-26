@@ -96,6 +96,7 @@ export async function POST(request: Request) {
 
     for (const item of items) {
       const product = await getProductById(item.productId);
+      const itemWithVariant = item as any;
 
       if (!product) {
         return NextResponse.json({ error: "Product not found", productId: item.productId }, { status: 404 });
@@ -119,11 +120,11 @@ export async function POST(request: Request) {
       let variantSize: string | undefined;
       let variantColor: string | undefined;
       
-      if (item.variantId) {
+      if (itemWithVariant.variantId) {
         const { data: variant } = await supabase
           .from("product_variants")
           .select("size, color")
-          .eq("id", item.variantId)
+          .eq("id", itemWithVariant.variantId)
           .single();
         
         if (variant) {
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
         productId: product.id,
         quantity: item.quantity,
         priceAtPurchase: Number(product.price),
-        variantId: item.variantId ?? undefined,
+        variantId: itemWithVariant.variantId ?? undefined,
         size: variantSize,
         color: variantColor,
       });
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
         quantity: item.quantity,
         priceAtPurchase: Number(product.price),
         productName: product.name,
-        variantId: item.variantId ?? undefined,
+        variantId: itemWithVariant.variantId ?? undefined,
         size: variantSize,
         color: variantColor,
       });
