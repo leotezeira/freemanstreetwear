@@ -98,7 +98,7 @@ export async function POST(request: Request) {
           ? (parsed.data.shipping.agencyCode ?? null)
           : null,
       paymentStatus: "pending",
-      items: orderItems.map(({ productName, ...rest }) => rest),
+      items: orderItems.map(({ productName: _name, ...rest }) => rest),
     });
 
     // Actualizar payment_method y order_number en la orden

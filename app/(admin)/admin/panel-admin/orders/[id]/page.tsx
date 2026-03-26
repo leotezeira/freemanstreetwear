@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import OrderDetailClient from "./order-detail-client";
 

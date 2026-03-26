@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
-import { Icon } from "@/components/ui/icon";
-import { CheckCircle2, LoaderCircle, Package, Truck } from "lucide-react";
+import { CheckCircle2, Package, Truck } from "lucide-react";
 
 type OrderItem = {
   id: string;

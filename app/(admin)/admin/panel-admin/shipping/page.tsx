@@ -39,6 +39,7 @@ export default function AdminShippingPage() {
 
   useEffect(() => {
     void loadMethods();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadMethods() {
@@ -153,35 +154,6 @@ export default function AdminShippingPage() {
         variant: "error",
         title: "Error",
         description: e instanceof Error ? e.message : "No se pudo eliminar el método",
-      });
-    }
-  }
-
-  async function handleUpdatePrice(id: string, price: number) {
-    try {
-      const res = await fetch("/api/shipping-methods", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "update", id, price }),
-      });
-
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Error al actualizar");
-
-      setMethods((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, price: body.method.price } : m))
-      );
-
-      toast.push({
-        variant: "success",
-        title: "Actualizado",
-        description: "El precio fue actualizado.",
-      });
-    } catch (e) {
-      toast.push({
-        variant: "error",
-        title: "Error",
-        description: e instanceof Error ? e.message : "No se pudo actualizar el precio",
       });
     }
   }
