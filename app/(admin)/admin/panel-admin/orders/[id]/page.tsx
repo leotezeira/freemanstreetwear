@@ -27,5 +27,11 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     .select("id, quantity, price_at_purchase, products(name, category)")
     .eq("order_id", id);
 
-  return <OrderDetailClient order={order} items={items ?? []} />;
+  // Normalize products - Supabase returns array but type expects object
+  const normalizedItems = (items ?? []).map((item) => ({
+    ...item,
+    products: Array.isArray(item.products) ? item.products[0] ?? null : item.products,
+  }));
+
+  return <OrderDetailClient order={order} items={normalizedItems} />;
 }
