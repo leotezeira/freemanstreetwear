@@ -343,7 +343,7 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
     try {
       const { payload, method } = pendingManualOrder;
       
-      const response = await fetch("/api/payments/manual-order", {
+      const response = await fetch("/api/payments/manual-orders", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...payload, paymentMethodId: method.id }),
