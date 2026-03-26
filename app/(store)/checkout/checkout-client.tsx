@@ -336,7 +336,7 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
           items: cartItems.map((it) => ({
             name: it.name,
             quantity: it.quantity,
-            price: it.price,
+            price: it.unitPrice,
           })),
         });
       }
