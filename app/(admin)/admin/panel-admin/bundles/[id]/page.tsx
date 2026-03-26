@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Trash2, Search, Package2 } from "lucide-react";
+import { X, Plus, Trash2, Search, Package2, Upload, Image as ImageIcon } from "lucide-react";
 import type { BundleWithItems } from "@/types/bundle";
 
 type Product = {
@@ -14,6 +14,7 @@ type Product = {
   price: number;
   stock: number;
   is_active: boolean;
+  image_path?: string | null;
   variants?: Array<{
     id: string;
     size: string;
@@ -35,9 +36,11 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -122,6 +125,41 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       console.error("[Search products]", e);
     } finally {
       setSearching(false);
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/admin/bundles/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? "Error al subir");
+
+      setFormData((p) => ({ ...p, image_path: result.imageUrl }));
+      toast.push({
+        variant: "success",
+        title: "Imagen subida",
+        description: "La imagen fue subida exitosamente",
+      });
+    } catch (err) {
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo subir la imagen",
+      });
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -301,17 +339,65 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                 </p>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  Imagen (URL o path)
+                  Imagen del Bundle
                 </label>
-                <input
-                  className="input-base"
-                  type="text"
-                  value={formData.image_path}
-                  onChange={(e) => setFormData((p) => ({ ...p, image_path: e.target.value }))}
-                  placeholder="/bundles/mi-bundle.jpg"
-                />
+                <div className="mt-2 flex items-start gap-4">
+                  {formData.image_path ? (
+                    <div className="relative group">
+                      <img
+                        src={formData.image_path}
+                        alt="Vista previa"
+                        className="h-32 w-32 object-cover rounded-xl border border-slate-200 dark:border-slate-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData((p) => ({ ...p, image_path: "" }))}
+                        className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <Icon icon={X} className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex h-32 w-32 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    >
+                      <div className="text-center">
+                        <Icon icon={Upload} className="mx-auto h-8 w-8 text-slate-400" />
+                        <p className="mt-1 text-xs text-slate-500">Click para subir</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                    <input
+                      className="input-base"
+                      type="text"
+                      value={formData.image_path}
+                      onChange={(e) => setFormData((p) => ({ ...p, image_path: e.target.value }))}
+                      placeholder="O pegá una URL de imagen..."
+                      disabled={uploadingImage}
+                    />
+                    {uploadingImage && (
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <Icon icon={Package2} className="h-3 w-3 animate-spin" />
+                        Subiendo imagen...
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Formatos: JPG, PNG, WebP · Máx: 5MB
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -393,7 +479,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                 <input
                   className="w-full bg-transparent text-sm outline-none"
                   type="text"
-                  placeholder="Buscar productos..."
+                  placeholder="Buscar productos por nombre..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -401,25 +487,60 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
               </div>
 
               {searchResults.length > 0 && (
-                <div className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
+                <div className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
                   {searchResults.map((product) => (
                     <button
                       key={product.id}
                       type="button"
                       onClick={() => addProduct(product)}
-                      className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+                      className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2 text-left last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                      {/* Imagen */}
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                        {product.image_path ? (
+                          <img
+                            src={product.image_path}
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-slate-400">
+                            <Icon icon={ImageIcon} className="h-5 w-5" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
                           {product.name}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          {product.category ?? "Sin categoría"} · Stock: {product.stock}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span>{product.category ?? "Sin categoría"}</span>
+                          <span>·</span>
+                          <span className={product.stock > 0 ? "text-emerald-600" : "text-red-600"}>
+                            {product.stock > 0 ? `${product.stock} disp.` : "Sin stock"}
+                          </span>
+                          {!product.is_active && (
+                            <>
+                              <span>·</span>
+                              <span className="text-amber-600">Inactivo</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                        {formatMoney(product.price)}
-                      </span>
+
+                      {/* Precio */}
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                          {formatMoney(product.price)}
+                        </span>
+                        {product.compare_at_price && product.compare_at_price > product.price && (
+                          <p className="text-xs line-through text-slate-400">
+                            {formatMoney(product.compare_at_price)}
+                          </p>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
