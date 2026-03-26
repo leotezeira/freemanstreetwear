@@ -4,23 +4,25 @@ import { getProductById } from "@/lib/services/products.service";
 import { createOrderWithItems } from "@/lib/services/orders.service";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-let orderCounter = 340;
-
 function createOrderNumber() {
   const date = new Date();
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
-  const num = String(orderCounter++).padStart(4, "0");
+  // Usar timestamp para evitar colisiones en serverless
+  const num = String(Date.now()).slice(-4);
   return `FSW-${y}${m}${d}-${num}`;
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log("[manual-orders] Body recibido:", JSON.stringify(body, null, 2));
+    
     const parsed = createPreferenceSchema.safeParse(body);
 
     if (!parsed.success) {
+      console.error("[manual-orders] Validation error:", parsed.error.flatten());
       const msg = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([k, v]) => `${k}: ${v?.join(", ")}`)
         .join("; ");
@@ -29,23 +31,31 @@ export async function POST(request: Request) {
 
     const { customer, items } = parsed.data;
     const paymentMethodId: string = (body as any).paymentMethodId ?? "transfer";
+    console.log("[manual-orders] paymentMethodId:", paymentMethodId);
 
     // Validar que el método exista y esté activo
     const supabase = getSupabaseAdminClient();
-    const { data: contentRow } = await supabase
+    const { data: contentRow, error: contentError } = await supabase
       .from("site_content")
       .select("value")
       .eq("key", "payment_methods")
       .maybeSingle();
 
+    if (contentError) {
+      console.error("[manual-orders] Error fetching payment methods:", contentError);
+    }
+
     const allMethods = (contentRow?.value as any[]) ?? [];
     const method = allMethods.find((m) => m.id === paymentMethodId && m.enabled);
+    
     if (!method) {
+      console.error("[manual-orders] Método no encontrado o no habilitado:", paymentMethodId);
       return NextResponse.json(
         { error: "Método de pago no disponible" },
         { status: 400 }
       );
     }
+    console.log("[manual-orders] Método encontrado:", method.label);
 
     const orderItems: Array<{
       productId: string;
@@ -101,9 +111,16 @@ export async function POST(request: Request) {
       items: orderItems.map(({ productName: _name, ...rest }) => rest),
     });
 
+    console.log("[manual-orders] Orden creada:", order?.id);
+
+    if (!order) {
+      console.error("[manual-orders] No se pudo crear la orden");
+      return NextResponse.json({ error: "No se pudo crear la orden" }, { status: 500 });
+    }
+
     // Actualizar payment_method y order_number en la orden
     const orderNumber = createOrderNumber();
-    await supabase
+    const { error: updateError } = await supabase
       .from("orders")
       .update({
         payment_method: paymentMethodId,
@@ -111,6 +128,12 @@ export async function POST(request: Request) {
         order_number: orderNumber,
       })
       .eq("id", order.id);
+
+    if (updateError) {
+      console.error("[manual-orders] Error actualizando orden:", updateError);
+    }
+
+    console.log("[manual-orders] Order number:", orderNumber);
 
     // Notificación Telegram — no bloquea si falla
     try {
@@ -150,6 +173,7 @@ export async function POST(request: Request) {
       total,
     });
   } catch (error) {
+    console.error("[manual-orders] ERROR:", error);
     const message = error instanceof Error ? error.message : "Error inesperado";
     return NextResponse.json({ error: message }, { status: 500 });
   }
