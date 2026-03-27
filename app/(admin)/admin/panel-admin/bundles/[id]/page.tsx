@@ -12,6 +12,7 @@ type Product = {
   name: string;
   category: string | null;
   price: number;
+  compare_at_price?: number | null;
   stock: number;
   is_active: boolean;
   image_path?: string | null;
