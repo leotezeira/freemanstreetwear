@@ -1,15 +1,15 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
 
-const BUNDLES_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
+// Usamos el mismo bucket que los productos (ya configurado y funciona)
+const BUCKET = process.env.PRODUCT_IMAGES_BUCKET ?? "product-images";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
 const MAX_IMAGE_WIDTH = 1600;
 
 /**
- * Sube una imagen de bundle a Supabase Storage y devuelve SOLO el filePath
- * @param formData - FormData con el campo "image" (legacy, usar API directamente)
- * @returns filePath ej: "bundles/abc123.webp"
- * @deprecated Usar API /api/admin/bundles/[id]/images directamente
+ * Sube una imagen de bundle al bucket product-images/bundles/
+ * @param formData - FormData con el campo "image"
+ * @returns filePath relativo ej: "bundles/abc123.png"
  */
 export async function uploadBundleImage(formData: FormData): Promise<string> {
   const supabase = getSupabaseAdminClient();
@@ -37,14 +37,13 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     .png({ quality: 90, compressionLevel: 6 })
     .toBuffer();
 
-  // Generar nombre único
-  const fileName = `${crypto.randomUUID()}.png`;
-  const filePath = `bundles/${fileName}`;
+  // Generar nombre único en carpeta bundles/
+  const fileName = `bundles/${crypto.randomUUID()}.png`;
 
   // Subir a Supabase Storage
   const { error: uploadError } = await supabase.storage
-    .from(BUNDLES_IMAGES_BUCKET)
-    .upload(filePath, pngBuffer, {
+    .from(BUCKET)
+    .upload(fileName, pngBuffer, {
       contentType: "image/png",
       upsert: false,
     });
@@ -53,69 +52,40 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     throw new Error(`Error al subir la imagen: ${uploadError.message}`);
   }
 
-  // Devolver SOLO el filePath (NO URL firmada)
-  return filePath;
+  // Devolver SOLO el filePath relativo (igual que product_images)
+  return fileName;
 }
 
 /**
- * Elimina una imagen de bundle del storage
- * @param filePath - Path del archivo ej: "bundles/abc123.webp"
+ * Genera URL firmada para imagen de bundle (usa el mismo sistema que productos)
+ * @param filePath - Path relativo ej: "bundles/abc123.png"
+ * @returns URL firmada o null
  */
-export async function deleteBundleImage(filePath: string): Promise<void> {
-  const supabase = getSupabaseAdminClient();
-
-  if (!filePath) return;
-
-  const { error } = await supabase.storage
-    .from(BUNDLES_IMAGES_BUCKET)
-    .remove([filePath]);
-
-  if (error) {
-    console.error("[deleteBundleImage] Error:", error);
-  }
-}
-
-/**
- * Genera una URL firmada para una imagen de bundle
- * @param filePath - Path del archivo ej: "bundles/abc123.webp"
- * @returns URL firmada o null si hay error
- */
-export async function createSignedBundleImageUrl(filePath: string): Promise<string | null> {
+export async function createSignedBundleImageUrl(filePath: string | null): Promise<string | null> {
   if (!filePath) return null;
+  
+  // Si ya es URL absoluta (viejo sistema), retornar directo
+  if (filePath.startsWith("http")) {
+    return filePath;
+  }
 
   const supabase = getSupabaseAdminClient();
-
+  
   try {
     const { data, error } = await supabase.storage
-      .from(BUNDLES_IMAGES_BUCKET)
+      .from(BUCKET)
       .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
-
+    
     if (error) {
       console.error("[createSignedBundleImageUrl] Error:", error);
       return null;
     }
-
+    
     return data.signedUrl;
   } catch (e) {
     console.error("[createSignedBundleImageUrl] Exception:", e);
     return null;
   }
-}
-
-/**
- * Obtiene URL pública para un bucket público
- * @param filePath - Path del archivo ej: "bundles/abc123.webp"
- * @returns URL pública
- */
-export function getBundleImagePublicUrl(filePath: string): string {
-  if (!filePath) return "";
-
-  const supabase = getSupabaseAdminClient();
-  const { data } = supabase.storage
-    .from(BUNDLES_IMAGES_BUCKET)
-    .getPublicUrl(filePath);
-
-  return data.publicUrl;
 }
 
 /**

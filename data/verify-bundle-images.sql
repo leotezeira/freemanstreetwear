@@ -49,7 +49,7 @@ SELECT
   name,
   bucket_id,
   owner,
-  size,
+  metadata->>'size' as file_size,
   created_at
 FROM storage.objects
 WHERE bucket_id = 'bundle-images'
@@ -60,10 +60,10 @@ LIMIT 10;
 SELECT 
   bundle_id,
   COUNT(*) as cantidad_imagenes,
-  MAX(is_primary::int) as tiene_primary
+  MAX(CASE WHEN is_primary THEN 1 ELSE 0 END) as tiene_primary
 FROM bundle_images
 GROUP BY bundle_id
-ORDER BY created_at DESC;
+ORDER BY bundle_id;
 
 -- ============================================
 -- SI LA TABLA bundle_images NO EXISTE:

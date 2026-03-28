@@ -146,7 +146,8 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       const result = await res.json();
       if (!res.ok) throw new Error(result.error ?? "Error al subir");
 
-      setFormData((p) => ({ ...p, image_path: result.imageUrl }));
+      // Guardar el filePath relativo (la URL firmada se genera al leer)
+      setFormData((p) => ({ ...p, image_path: result.filePath }));
       toast.push({
         variant: "success",
         title: "Imagen subida",

@@ -1,4 +1,5 @@
 import { getActiveBundles } from "@/lib/services/bundles.service";
+import { createSignedBundleImageUrl } from "@/lib/services/bundle-images.service";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,17 @@ function formatMoney(value: number) {
 export default async function BundlesPage() {
   const bundles = await getActiveBundles();
 
+  // Resolver signed URLs para las imágenes
+  const bundlesWithImages = await Promise.all(
+    bundles.map(async (bundle) => {
+      let resolvedImageUrl: string | null = null;
+      if (bundle.image_path) {
+        resolvedImageUrl = await createSignedBundleImageUrl(bundle.image_path).catch(() => null);
+      }
+      return { ...bundle, resolvedImageUrl };
+    })
+  );
+
   return (
     <main className="app-container py-10">
       <div className="text-center">
@@ -22,7 +34,7 @@ export default async function BundlesPage() {
         </p>
       </div>
 
-      {bundles.length === 0 ? (
+      {bundlesWithImages.length === 0 ? (
         <div className="mt-12 text-center">
           <p className="text-slate-600 dark:text-slate-300">
             No hay bundles disponibles por el momento.
@@ -30,7 +42,7 @@ export default async function BundlesPage() {
         </div>
       ) : (
         <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {bundles.map((bundle) => {
+          {bundlesWithImages.map((bundle) => {
             const savings = bundle.compare_at_price
               ? bundle.compare_at_price - bundle.price
               : 0;
@@ -45,9 +57,9 @@ export default async function BundlesPage() {
                 className="group card-base space-y-3 transition hover:shadow-lg"
               >
                 <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
-                  {bundle.image_path ? (
+                  {bundle.resolvedImageUrl ? (
                     <img
-                      src={bundle.image_path}
+                      src={bundle.resolvedImageUrl}
                       alt={bundle.name}
                       className="h-full w-full object-cover transition group-hover:scale-105"
                     />
@@ -63,7 +75,7 @@ export default async function BundlesPage() {
                     {bundle.name}
                   </h3>
                   <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
-                    {bundle.description ?? "Combo especial de productos"}
+                    {bundle.description ?? "Combo especial"}
                   </p>
                   {bundle.min_items && bundle.max_items && (
                     <p className="mt-1 text-xs text-slate-500">

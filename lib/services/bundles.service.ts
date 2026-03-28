@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Bundle, BundleWithItems, BundleFormData } from "@/types/bundle";
+import { createSignedBundleImageUrl } from "@/lib/services/bundle-images.service";
 
 /**
  * Genera URL firmada para imagen de producto
@@ -47,23 +48,10 @@ async function getBundleImageUrl(bundleId: string): Promise<string | null> {
   }
 
   if (!data?.image_path) {
-    console.warn("[getBundleImageUrl] No image path found for bundle:", bundleId);
     return null;
   }
 
-  console.log("[getBundleImageUrl] Image path found:", data.image_path);
-
-  const { data: urlData, error } = await supabase.storage
-    .from("bundle-images")
-    .createSignedUrl(data.image_path, 3600 * 24 * 30);
-
-  if (error) {
-    console.error("[getBundleImageUrl] Signed URL error:", error);
-    return null;
-  }
-
-  console.log("[getBundleImageUrl] Signed URL generated:", urlData.signedUrl);
-  return urlData.signedUrl;
+  return createSignedBundleImageUrl(data.image_path);
 }
 
 /**

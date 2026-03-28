@@ -4,8 +4,10 @@ import { uploadBundleImage } from "@/lib/services/bundle-images.service";
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const imageUrl = await uploadBundleImage(formData);
-    return NextResponse.json({ imageUrl });
+    const filePath = await uploadBundleImage(formData);
+    
+    // Devolver el filePath relativo (no URL)
+    return NextResponse.json({ filePath });
   } catch (error) {
     console.error("[api:admin:bundles:upload-image]", error);
     const message = error instanceof Error ? error.message : "Error al subir la imagen";
