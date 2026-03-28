@@ -51,7 +51,7 @@ GROUP BY bucket_id;
 SELECT 
   name as filename,
   'bundles/' || name as full_path,
-  size,
+  metadata->>'size' as file_size,
   created_at
 FROM storage.objects
 WHERE bucket_id = 'bundle-images'
