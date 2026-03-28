@@ -6,6 +6,31 @@ import { slugify } from "@/lib/utils/slug";
 import { sanitizeProductHtml } from "@/lib/utils/sanitize";
 
 const PRODUCT_IMAGES_BUCKET = process.env.PRODUCT_IMAGES_BUCKET ?? "product-images";
+
+/**
+ * Genera URL firmada para una imagen de producto
+ */
+async function createSignedProductImageUrl(filePath: string | null): Promise<string | null> {
+  if (!filePath) return null;
+  
+  const supabase = getSupabaseAdminClient();
+  
+  try {
+    const { data, error } = await supabase.storage
+      .from(PRODUCT_IMAGES_BUCKET)
+      .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
+    
+    if (error) {
+      console.error("[createSignedProductImageUrl] Error:", error);
+      return null;
+    }
+    
+    return data.signedUrl;
+  } catch (e) {
+    console.error("[createSignedProductImageUrl] Exception:", e);
+    return null;
+  }
+}
 const MAX_PRODUCT_IMAGE_BYTES = Number(process.env.MAX_PRODUCT_IMAGE_BYTES ?? String(4 * 1024 * 1024));
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGE_WIDTH = Number(process.env.MAX_PRODUCT_IMAGE_WIDTH ?? "1600");
@@ -133,8 +158,11 @@ export async function GET(request: Request) {
 
     if (error) throw new Error(error.message);
 
-    const products = (data ?? []).map((product: any) => {
+    // Generar URLs firmadas para las imágenes
+    const products = await Promise.all((data ?? []).map(async (product: any) => {
       const primaryImage = product.product_images?.find((img: any) => img.is_primary) ?? product.product_images?.[0];
+      const imageUrl = primaryImage?.image_path ? await createSignedProductImageUrl(primaryImage.image_path) : null;
+      
       return {
         id: product.id,
         name: product.name,
@@ -148,7 +176,7 @@ export async function GET(request: Request) {
         is_featured: product.is_featured,
         slug: product.slug,
         created_at: product.created_at,
-        image_path: primaryImage?.image_path ?? null,
+        image_path: imageUrl,
         variants: (product.product_variants ?? []).map((v: any) => ({
           id: v.id,
           size: v.size,
@@ -157,7 +185,7 @@ export async function GET(request: Request) {
           price: v.price,
         })),
       };
-    });
+    }));
 
     if (byCategory) {
       const grouped = products.reduce((acc, product) => {
