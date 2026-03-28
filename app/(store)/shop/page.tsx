@@ -156,7 +156,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                 <select name="type" defaultValue={showType} className="input-base">
                   <option value="all">Todos</option>
                   <option value="products">Productos</option>
-                  <option value="bundles">Bundles</option>
+                  <option value="bundles">Packs</option>
                 </select>
               </div>
 
@@ -235,7 +235,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                            Bundle
+                            Pack
                           </span>
                         </div>
                         <h3 className="mt-1 font-bold text-slate-900 dark:text-slate-50 group-hover:underline">

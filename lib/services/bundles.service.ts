@@ -1,6 +1,35 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Bundle, BundleWithItems, BundleFormData } from "@/types/bundle";
 
+async function createSignedBundleImageUrl(imagePath: string): Promise<string> {
+  if (!imagePath) return imagePath;
+  
+  const supabase = getSupabaseAdminClient();
+  
+  // Extraer el path del archivo de la URL completa
+  const pathParts = imagePath.split("/");
+  const fileNameWithQuery = pathParts[pathParts.length - 1];
+  const fileName = fileNameWithQuery.split("?")[0];
+  
+  if (!fileName || fileName === imagePath) return imagePath;
+  
+  try {
+    const { data, error } = await supabase.storage
+      .from("bundle-images")
+      .createSignedUrl(`bundles/${fileName}`, 3600 * 24 * 30); // 30 días
+    
+    if (error) {
+      console.error("[createSignedBundleImageUrl] Error:", error);
+      return imagePath;
+    }
+    
+    return data.signedUrl;
+  } catch (e) {
+    console.error("[createSignedBundleImageUrl] Exception:", e);
+    return imagePath;
+  }
+}
+
 export async function getBundles(): Promise<BundleWithItems[]> {
   const supabase = getSupabaseAdminClient();
 
@@ -38,8 +67,9 @@ export async function getBundles(): Promise<BundleWithItems[]> {
 
   if (error) throw new Error(error.message);
 
-  const normalized = (data ?? []).map((bundle: any) => ({
+  const normalized = await Promise.all((data ?? []).map(async (bundle: any) => ({
     ...bundle,
+    image_path: bundle.image_path ? await createSignedBundleImageUrl(bundle.image_path) : null,
     bundle_items: (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {
@@ -49,7 +79,7 @@ export async function getBundles(): Promise<BundleWithItems[]> {
         product_variants: item.products.product_variants ?? [],
       } : null,
     })),
-  }));
+  })));
 
   return normalized;
 }
@@ -92,8 +122,9 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
 
   if (error) throw new Error(error.message);
 
-  const normalized = (data ?? []).map((bundle: any) => ({
+  const normalized = await Promise.all((data ?? []).map(async (bundle: any) => ({
     ...bundle,
+    image_path: bundle.image_path ? await createSignedBundleImageUrl(bundle.image_path) : null,
     bundle_items: (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {
@@ -103,7 +134,7 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
         product_variants: item.products.product_variants ?? [],
       } : null,
     })),
-  }));
+  })));
 
   return normalized;
 }
@@ -148,6 +179,7 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
 
   const bundle: any = data;
   if (bundle) {
+    bundle.image_path = bundle.image_path ? await createSignedBundleImageUrl(bundle.image_path) : null;
     bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {
@@ -203,6 +235,7 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
 
   const bundle: any = data;
   if (bundle) {
+    bundle.image_path = bundle.image_path ? await createSignedBundleImageUrl(bundle.image_path) : null;
     bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {

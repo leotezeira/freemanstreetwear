@@ -1,14 +1,15 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import sharp from "sharp";
 
-const BUNDLES_IMAGES_BUCKET = "bundle-images";
-const MAX_IMAGE_BYTES = 5242880; // 5MB
-const MAX_IMAGE_WIDTH = 1600;
-const WEBP_QUALITY = 82;
+const BUNDLES_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
+const MAX_IMAGE_BYTES = Number(process.env.MAX_BUNDLE_IMAGE_BYTES ?? String(5 * 1024 * 1024)); // 5MB
+const MAX_IMAGE_WIDTH = Number(process.env.MAX_BUNDLE_IMAGE_WIDTH ?? "1600");
+const WEBP_QUALITY = Number(process.env.BUNDLE_IMAGE_WEBP_QUALITY ?? "82");
 
-export async function uploadBundleImage(file: FormData): Promise<string> {
+export async function uploadBundleImage(formData: FormData): Promise<string> {
   const supabase = getSupabaseAdminClient();
-  
-  const imageFile = file.get("image") as File;
+
+  const imageFile = formData.get("image") as File;
   if (!imageFile) {
     throw new Error("No se proporcionó ninguna imagen");
   }
@@ -23,16 +24,23 @@ export async function uploadBundleImage(file: FormData): Promise<string> {
     throw new Error("El archivo debe ser una imagen válida");
   }
 
+  // Convertir a WebP y optimizar
+  const rawBuffer = Buffer.from(await imageFile.arrayBuffer());
+  const webpBuffer = await sharp(rawBuffer)
+    .rotate()
+    .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+    .webp({ quality: WEBP_QUALITY })
+    .toBuffer();
+
   // Generar nombre único
-  const fileExt = imageFile.name.split(".").pop();
-  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-  const filePath = `${fileName}`;
+  const fileName = `${crypto.randomUUID()}.webp`;
+  const filePath = `bundles/${fileName}`;
 
   // Subir a Supabase Storage
   const { error: uploadError } = await supabase.storage
     .from(BUNDLES_IMAGES_BUCKET)
-    .upload(filePath, imageFile, {
-      cacheControl: "3600",
+    .upload(filePath, webpBuffer, {
+      contentType: "image/webp",
       upsert: false,
     });
 
@@ -40,12 +48,16 @@ export async function uploadBundleImage(file: FormData): Promise<string> {
     throw new Error(`Error al subir la imagen: ${uploadError.message}`);
   }
 
-  // Obtener URL pública
-  const { data: urlData } = supabase.storage
+  // Obtener URL firmada
+  const { data: urlData, error: urlError } = await supabase.storage
     .from(BUNDLES_IMAGES_BUCKET)
-    .getPublicUrl(filePath);
+    .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
 
-  return urlData.publicUrl;
+  if (urlError) {
+    throw new Error(`Error al generar URL: ${urlError.message}`);
+  }
+
+  return urlData.signedUrl;
 }
 
 export async function deleteBundleImage(imagePath: string): Promise<void> {

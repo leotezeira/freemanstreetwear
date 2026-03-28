@@ -16,7 +16,7 @@ export default async function BundlesPage() {
   return (
     <main className="app-container py-10">
       <div className="text-center">
-        <h1 className="text-3xl font-black tracking-tight">Bundles</h1>
+        <h1 className="text-3xl font-black tracking-tight">Packs</h1>
         <p className="mt-2 text-slate-600 dark:text-slate-300">
           Combos de productos con precios especiales. ¡Ahorrá comprando juntos!
         </p>
