@@ -86,6 +86,97 @@ function parseVariantsJson(input: FormDataEntryValue | null): VariantInput[] {
   return out;
 }
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q") ?? "";
+    const byCategory = searchParams.get("byCategory") === "true";
+
+    const supabase = getSupabaseAdminClient();
+
+    let query = supabase
+      .from("products")
+      .select(
+        `
+        id,
+        name,
+        description,
+        price,
+        compare_at_price,
+        stock,
+        category,
+        tags,
+        is_active,
+        is_featured,
+        slug,
+        created_at,
+        product_images!left (
+          image_path,
+          is_primary
+        ),
+        product_variants!left (
+          id,
+          size,
+          color,
+          stock,
+          price,
+          sku
+        )
+      `
+      );
+
+    if (q.trim()) {
+      query = query.ilike("name", `%${q.trim()}%`);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    const products = (data ?? []).map((product: any) => {
+      const primaryImage = product.product_images?.find((img: any) => img.is_primary) ?? product.product_images?.[0];
+      return {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        compare_at_price: product.compare_at_price,
+        stock: product.stock,
+        category: product.category,
+        tags: product.tags,
+        is_active: product.is_active,
+        is_featured: product.is_featured,
+        slug: product.slug,
+        created_at: product.created_at,
+        image_path: primaryImage?.image_path ?? null,
+        variants: (product.product_variants ?? []).map((v: any) => ({
+          id: v.id,
+          size: v.size,
+          color: v.color,
+          stock: v.stock,
+          price: v.price,
+        })),
+      };
+    });
+
+    if (byCategory) {
+      const grouped = products.reduce((acc, product) => {
+        const category = product.category ?? "Sin categoría";
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(product);
+        return acc;
+      }, {} as Record<string, typeof products>);
+
+      return NextResponse.json({ grouped, products: [] });
+    }
+
+    return NextResponse.json({ products, grouped: {} });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Error al buscar productos";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
