@@ -8,7 +8,7 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('product-images', 'product-images', false)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Bucket para imágenes de bundles
+-- 2. Bucket para imágenes de bundles/packs
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('bundle-images', 'bundle-images', false)
 ON CONFLICT (id) DO NOTHING;
