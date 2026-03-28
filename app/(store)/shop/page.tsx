@@ -218,26 +218,40 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       href={`/bundles/${item.slug}`}
                       className="group card-base space-y-3 transition hover:shadow-lg"
                     >
-                      <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
+                      <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900 relative">
                         {item.image_path ? (
-                          <img
-                            src={item.image_path}
-                            alt={item.name}
-                            className="h-full w-full object-cover transition group-hover:scale-105"
-                            onError={(e) => {
-                              const target = e.currentTarget;
-                              target.style.display = 'none';
-                              const placeholder = target.parentElement?.querySelector('.bundle-placeholder') as HTMLElement | null;
-                              if (placeholder) placeholder.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className="bundle-placeholder flex h-full items-center justify-center text-slate-400"
-                          style={{ display: item.image_path ? 'none' : 'flex' }}
-                        >
-                          <span className="text-sm">Pack</span>
-                        </div>
+                          <>
+                            <img
+                              src={item.image_path}
+                              alt={item.name}
+                              className="h-full w-full object-cover transition group-hover:scale-105"
+                              onError={(e) => {
+                                // Ocultar imagen rota y mostrar placeholder
+                                const target = e.currentTarget;
+                                target.style.display = 'none';
+                                const placeholder = target.parentElement?.querySelector('.bundle-placeholder') as HTMLElement | null;
+                                if (placeholder) {
+                                  placeholder.style.display = 'flex';
+                                  console.warn('[ShopPage] Bundle image not found:', {
+                                    bundleId: item.id,
+                                    bundleName: item.name,
+                                    imagePath: item.image_path,
+                                  });
+                                }
+                              }}
+                            />
+                            <div
+                              className="bundle-placeholder absolute inset-0 hidden items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-900"
+                              aria-hidden="true"
+                            >
+                              <span className="text-sm font-medium">Sin imagen</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="bundle-placeholder flex h-full items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-900">
+                            <span className="text-sm font-medium">Sin imagen</span>
+                          </div>
+                        )}
                       </div>
 
                       <div>

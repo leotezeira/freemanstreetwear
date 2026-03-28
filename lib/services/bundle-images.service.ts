@@ -50,7 +50,31 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     });
 
   if (uploadError) {
+    console.error("[uploadBundleImage] Upload error:", uploadError);
     throw new Error(`Error al subir la imagen: ${uploadError.message}`);
+  }
+
+  // VERIFICACIÓN POST-SUBIDA: Confirmar que el archivo existe
+  try {
+    const { data: statData, error: statError } = await supabase.storage
+      .from(BUNDLES_IMAGES_BUCKET)
+      .info(filePath);
+
+    if (statError || !statData) {
+      console.error("[uploadBundleImage] Verification failed:", statError);
+      // Intentar limpiar el archivo fallido
+      await supabase.storage.from(BUNDLES_IMAGES_BUCKET).remove([filePath]);
+      throw new Error("El archivo se subió pero no se pudo verificar. Reintentá la subida.");
+    }
+
+    console.log("[uploadBundleImage] File uploaded and verified:", {
+      filePath,
+      size: statData.size,
+      contentType: statData.contentType,
+    });
+  } catch (verifyError) {
+    console.error("[uploadBundleImage] Verification error:", verifyError);
+    throw new Error("Error al verificar la subida. Reintentá.");
   }
 
   // Devolver SOLO el filePath (NO URL firmada)
@@ -91,13 +115,25 @@ export async function createSignedBundleImageUrl(filePath: string): Promise<stri
       .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
 
     if (error) {
-      console.error("[createSignedBundleImageUrl] Error:", error);
+      console.error("[createSignedBundleImageUrl] Error generating signed URL:", {
+        filePath,
+        error: error.message,
+        statusCode: error.status,
+      });
+      return null;
+    }
+
+    if (!data.signedUrl) {
+      console.error("[createSignedBundleImageUrl] No signedUrl returned:", { filePath });
       return null;
     }
 
     return data.signedUrl;
   } catch (e) {
-    console.error("[createSignedBundleImageUrl] Exception:", e);
+    console.error("[createSignedBundleImageUrl] Exception:", {
+      filePath,
+      error: e instanceof Error ? e.message : String(e),
+    });
     return null;
   }
 }

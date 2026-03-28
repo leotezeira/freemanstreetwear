@@ -10,9 +10,21 @@ async function bundleImagePathToUrl(imagePath: string | null): Promise<string | 
   
   try {
     const signedUrl = await createSignedBundleImageUrl(imagePath);
+    
+    if (!signedUrl) {
+      console.warn("[bundleImagePathToUrl] File not found or error generating URL:", {
+        imagePath,
+        possibleCause: "El archivo no existe en el bucket o no hay permisos",
+      });
+      return null; // Retornar null para que el frontend use placeholder
+    }
+    
     return signedUrl;
   } catch (e) {
-    console.error("[bundleImagePathToUrl] Error:", e);
+    console.error("[bundleImagePathToUrl] Error:", {
+      imagePath,
+      error: e instanceof Error ? e.message : String(e),
+    });
     return imagePath; // Fallback: retorna el path original si falla
   }
 }
