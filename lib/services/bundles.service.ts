@@ -1,32 +1,38 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Bundle, BundleWithItems, BundleFormData } from "@/types/bundle";
-import { createSignedBundleImageUrl } from "@/lib/services/bundle-images.service";
 
 /**
- * Convierte un filePath a URL firmada para visualización
+ * Obtiene imágenes de un bundle con URLs firmadas
  */
-async function bundleImagePathToUrl(imagePath: string | null): Promise<string | null> {
-  if (!imagePath) return null;
-  
-  try {
-    const signedUrl = await createSignedBundleImageUrl(imagePath);
-    
-    if (!signedUrl) {
-      console.warn("[bundleImagePathToUrl] File not found or error generating URL:", {
-        imagePath,
-        possibleCause: "El archivo no existe en el bucket o no hay permisos",
-      });
-      return null; // Retornar null para que el frontend use placeholder
-    }
-    
-    return signedUrl;
-  } catch (e) {
-    console.error("[bundleImagePathToUrl] Error:", {
-      imagePath,
-      error: e instanceof Error ? e.message : String(e),
-    });
-    return imagePath; // Fallback: retorna el path original si falla
+async function getBundleImageUrls(bundleId: string): Promise<string | null> {
+  const supabase = getSupabaseAdminClient();
+
+  // Obtener imagen principal de bundle_images
+  const { data } = await supabase
+    .from("bundle_images")
+    .select("image_path")
+    .eq("bundle_id", bundleId)
+    .eq("is_primary", true)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data?.image_path) {
+    // Fallback: intentar con la columna legacy image_path
+    return null;
   }
+
+  // Generar URL firmada
+  const { data: urlData, error } = await supabase.storage
+    .from("bundle-images")
+    .createSignedUrl(data.image_path, 3600 * 24 * 30);
+
+  if (error) {
+    console.error("[getBundleImageUrls] Error:", error);
+    return null;
+  }
+
+  return urlData.signedUrl;
 }
 
 export async function getBundles(): Promise<BundleWithItems[]> {
@@ -68,7 +74,7 @@ export async function getBundles(): Promise<BundleWithItems[]> {
 
   // Procesar bundles y generar URLs firmadas
   const normalized = await Promise.all((data ?? []).map(async (bundle: any) => {
-    const imageUrl = await bundleImagePathToUrl(bundle.image_path);
+    const imageUrl = await getBundleImageUrls(bundle.id);
     
     return {
       ...bundle,
@@ -128,7 +134,7 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
 
   // Procesar bundles y generar URLs firmadas
   const normalized = await Promise.all((data ?? []).map(async (bundle: any) => {
-    const imageUrl = await bundleImagePathToUrl(bundle.image_path);
+    const imageUrl = await getBundleImageUrls(bundle.id);
     
     return {
       ...bundle,
@@ -189,7 +195,7 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
   const bundle: any = data;
   if (bundle) {
     // Generar URL firmada para la imagen del bundle
-    bundle.image_path = await bundleImagePathToUrl(bundle.image_path);
+    bundle.image_path = await getBundleImageUrls(bundle.id);
     
     bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
@@ -247,7 +253,7 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
   const bundle: any = data;
   if (bundle) {
     // Generar URL firmada para la imagen del bundle
-    bundle.image_path = await bundleImagePathToUrl(bundle.image_path);
+    bundle.image_path = await getBundleImageUrls(bundle.id);
     
     bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
@@ -318,7 +324,6 @@ export async function createBundle(formData: BundleFormData): Promise<Bundle> {
       price: formData.price,
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
-      image_path: formData.image_path ?? null, // Aquí va el filePath, no URL
       min_items: formData.min_items,
       max_items: formData.max_items,
     })
@@ -400,7 +405,6 @@ export async function updateBundle(
       price: formData.price,
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
-      image_path: formData.image_path ?? null, // Aquí va el filePath, no URL
       min_items: formData.min_items,
       max_items: formData.max_items,
     })

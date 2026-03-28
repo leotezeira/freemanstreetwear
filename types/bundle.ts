@@ -7,8 +7,17 @@ export type Bundle = {
   compare_at_price: number | null;
   is_active: boolean;
   image_path: string | null;
-  min_items: number; // Cantidad mínima de productos que debe elegir el cliente
-  max_items: number; // Cantidad máxima de productos que puede elegir el cliente
+  min_items: number;
+  max_items: number;
+  created_at: string;
+};
+
+export type BundleImage = {
+  id: string;
+  bundle_id: string;
+  image_path: string;
+  sort_order: number;
+  is_primary: boolean;
   created_at: string;
 };
 
@@ -16,7 +25,7 @@ export type BundleItem = {
   id: string;
   bundle_id: string;
   product_id: string;
-  quantity: number; // Cantidad de este producto que viene en el bundle
+  quantity: number;
   created_at: string;
 };
 
@@ -46,6 +55,7 @@ export type BundleWithItems = Bundle & {
       }>;
     } | null;
   })[];
+  bundle_images?: BundleImage[];
 };
 
 export type BundleFormData = {

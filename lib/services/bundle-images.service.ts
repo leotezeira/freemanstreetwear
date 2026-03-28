@@ -8,8 +8,9 @@ const WEBP_QUALITY = Number(process.env.BUNDLE_IMAGE_WEBP_QUALITY ?? "82");
 
 /**
  * Sube una imagen de bundle a Supabase Storage y devuelve SOLO el filePath
- * @param formData - FormData con el campo "image"
+ * @param formData - FormData con el campo "image" (legacy, usar API directamente)
  * @returns filePath ej: "bundles/abc123.webp"
+ * @deprecated Usar API /api/admin/bundles/[id]/images directamente
  */
 export async function uploadBundleImage(formData: FormData): Promise<string> {
   const supabase = getSupabaseAdminClient();
@@ -50,31 +51,7 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     });
 
   if (uploadError) {
-    console.error("[uploadBundleImage] Upload error:", uploadError);
     throw new Error(`Error al subir la imagen: ${uploadError.message}`);
-  }
-
-  // VERIFICACIÓN POST-SUBIDA: Confirmar que el archivo existe
-  try {
-    const { data: statData, error: statError } = await supabase.storage
-      .from(BUNDLES_IMAGES_BUCKET)
-      .info(filePath);
-
-    if (statError || !statData) {
-      console.error("[uploadBundleImage] Verification failed:", statError);
-      // Intentar limpiar el archivo fallido
-      await supabase.storage.from(BUNDLES_IMAGES_BUCKET).remove([filePath]);
-      throw new Error("El archivo se subió pero no se pudo verificar. Reintentá la subida.");
-    }
-
-    console.log("[uploadBundleImage] File uploaded and verified:", {
-      filePath,
-      size: statData.size,
-      contentType: statData.contentType,
-    });
-  } catch (verifyError) {
-    console.error("[uploadBundleImage] Verification error:", verifyError);
-    throw new Error("Error al verificar la subida. Reintentá.");
   }
 
   // Devolver SOLO el filePath (NO URL firmada)
@@ -115,25 +92,13 @@ export async function createSignedBundleImageUrl(filePath: string): Promise<stri
       .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
 
     if (error) {
-      console.error("[createSignedBundleImageUrl] Error generating signed URL:", {
-        filePath,
-        error: error.message,
-        statusCode: error.status,
-      });
-      return null;
-    }
-
-    if (!data.signedUrl) {
-      console.error("[createSignedBundleImageUrl] No signedUrl returned:", { filePath });
+      console.error("[createSignedBundleImageUrl] Error:", error);
       return null;
     }
 
     return data.signedUrl;
   } catch (e) {
-    console.error("[createSignedBundleImageUrl] Exception:", {
-      filePath,
-      error: e instanceof Error ? e.message : String(e),
-    });
+    console.error("[createSignedBundleImageUrl] Exception:", e);
     return null;
   }
 }
@@ -152,4 +117,66 @@ export function getBundleImagePublicUrl(filePath: string): string {
     .getPublicUrl(filePath);
 
   return data.publicUrl;
+}
+
+/**
+ * Obtiene imágenes de un bundle con URLs firmadas
+ * @param bundleId - ID del bundle
+ * @returns Array de imágenes con URLs firmadas
+ */
+export async function getBundleImages(bundleId: string) {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from("bundle_images")
+    .select("*")
+    .eq("bundle_id", bundleId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    console.error("[getBundleImages] Error:", error);
+    return [];
+  }
+
+  // Generar URLs firmadas para cada imagen
+  const imagesWithUrls = await Promise.all(
+    (data ?? []).map(async (img: any) => ({
+      ...img,
+      image_url: img.image_path ? await createSignedBundleImageUrl(img.image_path) : null,
+    }))
+  );
+
+  return imagesWithUrls;
+}
+
+/**
+ * Obtiene la imagen principal de un bundle
+ * @param bundleId - ID del bundle
+ * @returns URL de la imagen principal o null
+ */
+export async function getBundlePrimaryImageUrl(bundleId: string): Promise<string | null> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from("bundle_images")
+    .select("image_path")
+    .eq("bundle_id", bundleId)
+    .eq("is_primary", true)
+    .single();
+
+  if (error || !data) {
+    // Fallback: obtener la primera imagen por sort_order
+    const { data: fallbackData } = await supabase
+      .from("bundle_images")
+      .select("image_path")
+      .eq("bundle_id", bundleId)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!fallbackData?.image_path) return null;
+    return createSignedBundleImageUrl(fallbackData.image_path);
+  }
+
+  return createSignedBundleImageUrl(data.image_path);
 }
