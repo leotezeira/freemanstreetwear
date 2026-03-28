@@ -3,9 +3,11 @@ import { uploadBundleImage } from "@/lib/services/bundle-images.service";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[upload-image API] Request received");
     const formData = await request.formData();
     const filePath = await uploadBundleImage(formData);
     
+    console.log("[upload-image API] File uploaded successfully:", filePath);
     // Devolver el filePath relativo (no URL)
     return NextResponse.json({ filePath });
   } catch (error) {

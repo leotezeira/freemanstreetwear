@@ -19,6 +19,12 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     throw new Error("No se proporcionó ninguna imagen");
   }
 
+  console.log("[uploadBundleImage] File received:", {
+    name: imageFile.name,
+    size: imageFile.size,
+    type: imageFile.type,
+  });
+
   // Validar tamaño
   if (imageFile.size > MAX_IMAGE_BYTES) {
     throw new Error(`La imagen no puede superar los ${MAX_IMAGE_BYTES / 1024 / 1024}MB`);
@@ -39,6 +45,7 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
 
   // Generar nombre único en carpeta bundles/
   const fileName = `bundles/${crypto.randomUUID()}.png`;
+  console.log("[uploadBundleImage] Generated fileName:", fileName);
 
   // Subir a Supabase Storage
   const { error: uploadError } = await supabase.storage
@@ -49,9 +56,11 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     });
 
   if (uploadError) {
+    console.error("[uploadBundleImage] Upload error:", uploadError);
     throw new Error(`Error al subir la imagen: ${uploadError.message}`);
   }
 
+  console.log("[uploadBundleImage] Upload successful:", fileName);
   // Devolver SOLO el filePath relativo (igual que product_images)
   return fileName;
 }
@@ -62,13 +71,19 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
  * @returns URL firmada o null
  */
 export async function createSignedBundleImageUrl(filePath: string | null): Promise<string | null> {
-  if (!filePath) return null;
+  if (!filePath) {
+    console.log("[createSignedBundleImageUrl] No filePath provided");
+    return null;
+  }
   
   // Si ya es URL absoluta (viejo sistema), retornar directo
   if (filePath.startsWith("http")) {
+    console.log("[createSignedBundleImageUrl] Returning absolute URL:", filePath.substring(0, 50) + "...");
     return filePath;
   }
 
+  console.log("[createSignedBundleImageUrl] Generating signed URL for:", filePath);
+  
   const supabase = getSupabaseAdminClient();
   
   try {
@@ -77,10 +92,11 @@ export async function createSignedBundleImageUrl(filePath: string | null): Promi
       .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
     
     if (error) {
-      console.error("[createSignedBundleImageUrl] Error:", error);
+      console.error("[createSignedBundleImageUrl] Supabase error:", error);
       return null;
     }
     
+    console.log("[createSignedBundleImageUrl] Signed URL generated:", data.signedUrl.substring(0, 80) + "...");
     return data.signedUrl;
   } catch (e) {
     console.error("[createSignedBundleImageUrl] Exception:", e);
