@@ -3,11 +3,10 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
 
 const BUNDLE_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
-const MAX_BUNDLE_IMAGE_BYTES = Number(process.env.MAX_BUNDLE_IMAGE_BYTES ?? String(4 * 1024 * 1024));
+const MAX_BUNDLE_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_IMAGE_WIDTH = Number(process.env.MAX_BUNDLE_IMAGE_WIDTH ?? "1600");
-const WEBP_QUALITY = Number(process.env.BUNDLE_IMAGE_WEBP_QUALITY ?? "82");
-const MAX_IMAGES_PER_BUNDLE = 6;
+const MAX_IMAGE_WIDTH = 1600;
+const MAX_IMAGES_PER_BUNDLE = 5;
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -74,20 +73,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const uploadedPaths: string[] = [];
     const baseSortOrder = (maxSortRow?.sort_order ?? -1) + 1;
     for (const file of uploadFiles) {
-      const filename = `${crypto.randomUUID()}.webp`;
+      const filename = `${crypto.randomUUID()}.png`;
       const path = `bundles/${bundleId}/${filename}`;
 
+      // Leer buffer y convertir a PNG
       const rawBuffer = Buffer.from(await file.arrayBuffer());
-      const webpBuffer = await sharp(rawBuffer)
+      const pngBuffer = await sharp(rawBuffer)
         .rotate()
         .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
-        .webp({ quality: WEBP_QUALITY })
+        .png({ quality: 90, compressionLevel: 6 })
         .toBuffer();
 
       const { error: uploadError } = await supabase.storage
         .from(BUNDLE_IMAGES_BUCKET)
-        .upload(path, webpBuffer, {
-          contentType: "image/webp",
+        .upload(path, pngBuffer, {
+          contentType: "image/png",
           upsert: false,
         });
 

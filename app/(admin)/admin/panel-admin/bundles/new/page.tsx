@@ -283,9 +283,17 @@ export default function AdminBundleNewPage() {
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Imagen del Bundle
               </label>
-              <div className="mt-2 flex items-start gap-4">
+              <div className="mt-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
                 {formData.image_path ? (
-                  <div className="relative group">
+                  <div className="relative inline-block">
                     <img
                       src={formData.image_path}
                       alt="Vista previa"
@@ -294,49 +302,33 @@ export default function AdminBundleNewPage() {
                     <button
                       type="button"
                       onClick={() => setFormData((p) => ({ ...p, image_path: "" }))}
-                      className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white opacity-0 group-hover:opacity-100 transition"
+                      className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1.5 text-white hover:bg-red-600 transition"
                     >
                       <Icon icon={X} className="h-4 w-4" />
                     </button>
                   </div>
                 ) : (
-                  <div
+                  <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex h-32 w-32 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    disabled={uploadingImage}
+                    className="flex h-32 w-32 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="text-center">
                       <Icon icon={Upload} className="mx-auto h-8 w-8 text-slate-400" />
                       <p className="mt-1 text-xs text-slate-500">Click para subir</p>
                     </div>
-                  </div>
+                  </button>
                 )}
-                <div className="flex-1 space-y-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploadingImage}
-                    className="hidden"
-                  />
-                  <input
-                    className="input-base"
-                    type="text"
-                    value={formData.image_path}
-                    onChange={(e) => setFormData((p) => ({ ...p, image_path: e.target.value }))}
-                    placeholder="O pegá una URL de imagen..."
-                    disabled={uploadingImage}
-                  />
-                  {uploadingImage && (
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <Icon icon={Package2} className="h-3 w-3 animate-spin" />
-                      Subiendo imagen...
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-500">
-                    Formatos: JPG, PNG, WebP · Máx: 5MB
+                {uploadingImage && (
+                  <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+                    <Icon icon={Package2} className="h-3 w-3 animate-spin" />
+                    Subiendo imagen...
                   </p>
-                </div>
+                )}
+                <p className="mt-2 text-xs text-slate-500">
+                  Formatos: JPG, PNG · Máx: 8MB · Se convierte a PNG automáticamente
+                </p>
               </div>
             </div>
           </div>

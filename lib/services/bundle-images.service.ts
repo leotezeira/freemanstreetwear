@@ -2,9 +2,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
 
 const BUNDLES_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
-const MAX_IMAGE_BYTES = Number(process.env.MAX_BUNDLE_IMAGE_BYTES ?? String(5 * 1024 * 1024)); // 5MB
-const MAX_IMAGE_WIDTH = Number(process.env.MAX_BUNDLE_IMAGE_WIDTH ?? "1600");
-const WEBP_QUALITY = Number(process.env.BUNDLE_IMAGE_WEBP_QUALITY ?? "82");
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
+const MAX_IMAGE_WIDTH = 1600;
 
 /**
  * Sube una imagen de bundle a Supabase Storage y devuelve SOLO el filePath
@@ -30,23 +29,23 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     throw new Error("El archivo debe ser una imagen válida");
   }
 
-  // Convertir a WebP y optimizar
+  // Convertir a PNG y optimizar
   const rawBuffer = Buffer.from(await imageFile.arrayBuffer());
-  const webpBuffer = await sharp(rawBuffer)
+  const pngBuffer = await sharp(rawBuffer)
     .rotate()
     .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
-    .webp({ quality: WEBP_QUALITY })
+    .png({ quality: 90, compressionLevel: 6 })
     .toBuffer();
 
   // Generar nombre único
-  const fileName = `${crypto.randomUUID()}.webp`;
+  const fileName = `${crypto.randomUUID()}.png`;
   const filePath = `bundles/${fileName}`;
 
   // Subir a Supabase Storage
   const { error: uploadError } = await supabase.storage
     .from(BUNDLES_IMAGES_BUCKET)
-    .upload(filePath, webpBuffer, {
-      contentType: "image/webp",
+    .upload(filePath, pngBuffer, {
+      contentType: "image/png",
       upsert: false,
     });
 
