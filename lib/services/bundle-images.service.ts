@@ -6,6 +6,11 @@ const MAX_IMAGE_BYTES = Number(process.env.MAX_BUNDLE_IMAGE_BYTES ?? String(5 * 
 const MAX_IMAGE_WIDTH = Number(process.env.MAX_BUNDLE_IMAGE_WIDTH ?? "1600");
 const WEBP_QUALITY = Number(process.env.BUNDLE_IMAGE_WEBP_QUALITY ?? "82");
 
+/**
+ * Sube una imagen de bundle a Supabase Storage y devuelve SOLO el filePath
+ * @param formData - FormData con el campo "image"
+ * @returns filePath ej: "bundles/abc123.webp"
+ */
 export async function uploadBundleImage(formData: FormData): Promise<string> {
   const supabase = getSupabaseAdminClient();
 
@@ -48,53 +53,67 @@ export async function uploadBundleImage(formData: FormData): Promise<string> {
     throw new Error(`Error al subir la imagen: ${uploadError.message}`);
   }
 
-  // Obtener URL firmada
-  const { data: urlData, error: urlError } = await supabase.storage
-    .from(BUNDLES_IMAGES_BUCKET)
-    .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
-
-  if (urlError) {
-    throw new Error(`Error al generar URL: ${urlError.message}`);
-  }
-
-  return urlData.signedUrl;
+  // Devolver SOLO el filePath (NO URL firmada)
+  return filePath;
 }
 
-export async function deleteBundleImage(imagePath: string): Promise<void> {
+/**
+ * Elimina una imagen de bundle del storage
+ * @param filePath - Path del archivo ej: "bundles/abc123.webp"
+ */
+export async function deleteBundleImage(filePath: string): Promise<void> {
   const supabase = getSupabaseAdminClient();
-  
-  // Extraer el path del archivo de la URL
-  const pathParts = imagePath.split("/");
-  const fileName = pathParts[pathParts.length - 1];
-  
-  if (!fileName) return;
+
+  if (!filePath) return;
 
   const { error } = await supabase.storage
     .from(BUNDLES_IMAGES_BUCKET)
-    .remove([fileName]);
+    .remove([filePath]);
 
   if (error) {
     console.error("[deleteBundleImage] Error:", error);
   }
 }
 
-export async function createSignedBundleImageUrl(imagePath: string): Promise<string> {
+/**
+ * Genera una URL firmada para una imagen de bundle
+ * @param filePath - Path del archivo ej: "bundles/abc123.webp"
+ * @returns URL firmada o null si hay error
+ */
+export async function createSignedBundleImageUrl(filePath: string): Promise<string | null> {
+  if (!filePath) return null;
+
   const supabase = getSupabaseAdminClient();
-  
-  // Extraer el path del archivo de la URL
-  const pathParts = imagePath.split("/");
-  const fileName = pathParts[pathParts.length - 1];
-  
-  if (!fileName) return imagePath;
 
-  const { data, error } = await supabase.storage
-    .from(BUNDLES_IMAGES_BUCKET)
-    .createSignedUrl(fileName, 3600); // 1 hora
+  try {
+    const { data, error } = await supabase.storage
+      .from(BUNDLES_IMAGES_BUCKET)
+      .createSignedUrl(filePath, 3600 * 24 * 30); // 30 días
 
-  if (error) {
-    console.error("[createSignedBundleImageUrl] Error:", error);
-    return imagePath;
+    if (error) {
+      console.error("[createSignedBundleImageUrl] Error:", error);
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (e) {
+    console.error("[createSignedBundleImageUrl] Exception:", e);
+    return null;
   }
+}
 
-  return data.signedUrl;
+/**
+ * Obtiene URL pública para un bucket público
+ * @param filePath - Path del archivo ej: "bundles/abc123.webp"
+ * @returns URL pública
+ */
+export function getBundleImagePublicUrl(filePath: string): string {
+  if (!filePath) return "";
+
+  const supabase = getSupabaseAdminClient();
+  const { data } = supabase.storage
+    .from(BUNDLES_IMAGES_BUCKET)
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
 }

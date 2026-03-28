@@ -224,12 +224,20 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                             src={item.image_path}
                             alt={item.name}
                             className="h-full w-full object-cover transition group-hover:scale-105"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.style.display = 'none';
+                              const placeholder = target.parentElement?.querySelector('.bundle-placeholder') as HTMLElement | null;
+                              if (placeholder) placeholder.style.display = 'flex';
+                            }}
                           />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-slate-400">
-                            <span className="text-sm">Bundle</span>
-                          </div>
-                        )}
+                        ) : null}
+                        <div
+                          className="bundle-placeholder flex h-full items-center justify-center text-slate-400"
+                          style={{ display: item.image_path ? 'none' : 'flex' }}
+                        >
+                          <span className="text-sm">Pack</span>
+                        </div>
                       </div>
 
                       <div>
