@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Trash2, Upload, Image as ImageIcon, Package2, ChevronRight, ChevronDown } from "lucide-react";
+import { X, Plus, Upload, Image as ImageIcon, Package2, ChevronRight, ChevronDown } from "lucide-react";
 
 type Product = {
   id: string;
@@ -15,18 +15,10 @@ type Product = {
   stock: number;
   is_active: boolean;
   image_path?: string | null;
-  variants?: Array<{
-    id: string;
-    size: string;
-    color: string;
-    stock: number;
-    price: number | null;
-  }>;
 };
 
 type BundleItem = {
   product_id: string;
-  variant_id: string | null;
   quantity: number;
 };
 
@@ -47,6 +39,8 @@ export default function AdminBundleNewPage() {
     compare_at_price: "",
     is_active: true,
     image_path: "",
+    min_items: 1,
+    max_items: 1,
   });
 
   const [items, setItems] = useState<BundleItem[]>([]);
@@ -119,15 +113,13 @@ export default function AdminBundleNewPage() {
     }
   }
 
-  function addProduct(product: Product, variantId: string | null = null) {
-    const alreadyAdded = items.some(
-      (item) => item.product_id === product.id && item.variant_id === variantId
-    );
+  function addProduct(product: Product) {
+    const alreadyAdded = items.some((item) => item.product_id === product.id);
     if (alreadyAdded) {
       toast.push({
         variant: "error",
         title: "Producto ya agregado",
-        description: "Este producto/variante ya está en el bundle",
+        description: "Este producto ya está en el bundle",
       });
       return;
     }
@@ -136,26 +128,14 @@ export default function AdminBundleNewPage() {
       ...prev,
       {
         product_id: product.id,
-        variant_id: variantId,
         quantity: 1,
       },
     ]);
+    setShowProductModal(false);
   }
 
   function removeItem(index: number) {
     setItems((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateItemQuantity(index: number, quantity: number) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantity: Math.max(1, quantity) } : item))
-    );
-  }
-
-  function updateItemVariant(index: number, variantId: string | null) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, variant_id: variantId } : item))
-    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -175,6 +155,15 @@ export default function AdminBundleNewPage() {
         variant: "error",
         title: "Productos requeridos",
         description: "El bundle debe tener al menos un producto",
+      });
+      return;
+    }
+
+    if (items.length < formData.min_items) {
+      toast.push({
+        variant: "error",
+        title: "Mínimo de productos",
+        description: `Debes agregar al menos ${formData.min_items} productos`,
       });
       return;
     }
@@ -228,13 +217,6 @@ export default function AdminBundleNewPage() {
     return Object.values(groupedProducts)
       .flat()
       .find((p) => p.id === id);
-  }
-
-  function getVariantName(variantId: string | null, product: Product | undefined): string {
-    if (!variantId || !product?.variants) return "";
-    const variant = product.variants.find((v) => v.id === variantId);
-    if (!variant) return "";
-    return `${variant.size} / ${variant.color}`;
   }
 
   return (
@@ -373,6 +355,53 @@ export default function AdminBundleNewPage() {
           </div>
         </div>
 
+        {/* Configuración de items */}
+        <div className="card-base space-y-4">
+          <h2 className="text-base font-bold">Configuración del Bundle</h2>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                Mínimo de productos a elegir *
+              </label>
+              <input
+                className="input-base"
+                type="number"
+                min={1}
+                value={formData.min_items}
+                onChange={(e) => setFormData((p) => ({ ...p, min_items: Number(e.target.value) }))}
+                required
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Cantidad mínima de productos que el cliente debe elegir
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                Máximo de productos a elegir *
+              </label>
+              <input
+                className="input-base"
+                type="number"
+                min={1}
+                value={formData.max_items}
+                onChange={(e) => setFormData((p) => ({ ...p, max_items: Number(e.target.value) }))}
+                required
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Cantidad máxima de productos que el cliente puede elegir
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/30">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              <strong>Ejemplo:</strong> Si configurás Mínimo: 3 y Máximo: 3, el cliente deberá elegir exactamente 3 productos de la lista que agregues abajo.
+            </p>
+          </div>
+        </div>
+
         {/* Precio */}
         <div className="card-base space-y-4">
           <h2 className="text-base font-bold">Precios</h2>
@@ -427,7 +456,7 @@ export default function AdminBundleNewPage() {
         {/* Productos */}
         <div className="card-base space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold">Productos del Bundle</h2>
+            <h2 className="text-base font-bold">Productos Disponibles</h2>
             <button
               type="button"
               onClick={() => setShowProductModal(true)}
@@ -439,6 +468,10 @@ export default function AdminBundleNewPage() {
               </span>
             </button>
           </div>
+
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Agregá todos los productos que el cliente podrá elegir. El cliente deberá elegir entre {formData.min_items} y {formData.max_items} productos.
+          </p>
 
           {items.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
@@ -454,10 +487,9 @@ export default function AdminBundleNewPage() {
             <div className="space-y-3">
               {items.map((item, index) => {
                 const product = getProductById(item.product_id);
-                const variantName = getVariantName(item.variant_id, product);
                 return (
                   <div
-                    key={`${item.product_id}-${item.variant_id}-${index}`}
+                    key={`${item.product_id}-${index}`}
                     className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
                   >
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
@@ -478,33 +510,9 @@ export default function AdminBundleNewPage() {
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
                         {product?.name ?? "Producto"}
                       </p>
-                      {variantName && (
-                        <p className="text-xs text-slate-500">Variante: {variantName}</p>
-                      )}
-                      <div className="mt-1 flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
-                          className="w-16 rounded border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
-                        />
-                        <span className="text-xs text-slate-500">unidades</span>
-                        {product && product.variants && product.variants.length > 0 && (
-                          <select
-                            value={item.variant_id ?? ""}
-                            onChange={(e) => updateItemVariant(index, e.target.value || null)}
-                            className="rounded border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
-                          >
-                            <option value="">Sin variante</option>
-                            {product.variants.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {v.size} / {v.color} (Stock: {v.stock})
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
+                      <p className="text-xs text-slate-500">
+                        {product?.category ?? "Sin categoría"} · {(product?.stock ?? 0) > 0 ? `${product?.stock ?? 0} disp.` : "Sin stock"}
+                      </p>
                     </div>
 
                     <div className="text-right shrink-0">
@@ -522,7 +530,7 @@ export default function AdminBundleNewPage() {
                       className="text-red-600 hover:text-red-700"
                       title="Eliminar"
                     >
-                      <Icon icon={Trash2} className="h-5 w-5" />
+                      <Icon icon={X} className="h-5 w-5" />
                     </button>
                   </div>
                 );
@@ -532,7 +540,7 @@ export default function AdminBundleNewPage() {
                 <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      Total ({items.length} productos)
+                      Total ({items.length} productos disponibles)
                     </span>
                     <span className="text-lg font-bold text-slate-900 dark:text-slate-50">
                       {formatMoney(calculatedCompareAtPrice)}
@@ -633,35 +641,14 @@ export default function AdminBundleNewPage() {
                                     </div>
                                   </div>
 
-                                  {product.variants && product.variants.length > 0 ? (
-                                    <div className="mt-2 space-y-1">
-                                      {product.variants.map((variant) => (
-                                        <button
-                                          key={variant.id}
-                                          type="button"
-                                          onClick={() => addProduct(product, variant.id)}
-                                          disabled={variant.stock <= 0}
-                                          className="flex w-full items-center justify-between rounded border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:hover:bg-slate-800"
-                                        >
-                                          <span>
-                                            {variant.size} / {variant.color}
-                                          </span>
-                                          <span className="text-slate-500">
-                                            Stock: {variant.stock}
-                                          </span>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => addProduct(product)}
-                                      disabled={product.stock <= 0 || !product.is_active}
-                                      className="btn-primary mt-2 w-full text-xs"
-                                    >
-                                      Agregar
-                                    </button>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => addProduct(product)}
+                                    disabled={product.stock <= 0 || !product.is_active}
+                                    className="btn-primary mt-2 w-full text-xs"
+                                  >
+                                    Agregar
+                                  </button>
                                 </div>
                               ))}
                             </div>

@@ -13,6 +13,7 @@ export async function getBundles(): Promise<BundleWithItems[]> {
         products (
           id,
           name,
+          description,
           category,
           price,
           compare_at_price,
@@ -21,34 +22,35 @@ export async function getBundles(): Promise<BundleWithItems[]> {
           product_images (
             image_path,
             is_primary
+          ),
+          product_variants (
+            id,
+            size,
+            color,
+            sku,
+            stock,
+            price
           )
-        ),
-        product_variants (
-          id,
-          size,
-          color,
-          sku,
-          stock,
-          price
         )
       )
     `)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  
+
   const normalized = (data ?? []).map((bundle: any) => ({
     ...bundle,
     bundle_items: (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {
         ...item.products,
-        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
                     item.products.product_images?.[0]?.image_path ?? null,
+        product_variants: item.products.product_variants ?? [],
       } : null,
     })),
   }));
-  
+
   return normalized;
 }
 
@@ -64,6 +66,7 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
         products (
           id,
           name,
+          description,
           category,
           price,
           compare_at_price,
@@ -72,15 +75,15 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
           product_images (
             image_path,
             is_primary
+          ),
+          product_variants (
+            id,
+            size,
+            color,
+            sku,
+            stock,
+            price
           )
-        ),
-        product_variants (
-          id,
-          size,
-          color,
-          sku,
-          stock,
-          price
         )
       )
     `)
@@ -88,19 +91,20 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  
+
   const normalized = (data ?? []).map((bundle: any) => ({
     ...bundle,
     bundle_items: (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {
         ...item.products,
-        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
                     item.products.product_images?.[0]?.image_path ?? null,
+        product_variants: item.products.product_variants ?? [],
       } : null,
     })),
   }));
-  
+
   return normalized;
 }
 
@@ -116,6 +120,7 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
         products (
           id,
           name,
+          description,
           category,
           price,
           compare_at_price,
@@ -124,15 +129,15 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
           product_images (
             image_path,
             is_primary
+          ),
+          product_variants (
+            id,
+            size,
+            color,
+            sku,
+            stock,
+            price
           )
-        ),
-        product_variants (
-          id,
-          size,
-          color,
-          sku,
-          stock,
-          price
         )
       )
     `)
@@ -140,19 +145,20 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
     .single();
 
   if (error) return null;
-  
+
   const bundle: any = data;
   if (bundle) {
     bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {
         ...item.products,
-        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
                     item.products.product_images?.[0]?.image_path ?? null,
+        product_variants: item.products.product_variants ?? [],
       } : null,
     }));
   }
-  
+
   return bundle;
 }
 
@@ -168,6 +174,7 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
         products (
           id,
           name,
+          description,
           category,
           price,
           compare_at_price,
@@ -176,15 +183,15 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
           product_images (
             image_path,
             is_primary
+          ),
+          product_variants (
+            id,
+            size,
+            color,
+            sku,
+            stock,
+            price
           )
-        ),
-        product_variants (
-          id,
-          size,
-          color,
-          sku,
-          stock,
-          price
         )
       )
     `)
@@ -193,28 +200,37 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
     .single();
 
   if (error) return null;
-  
+
   const bundle: any = data;
   if (bundle) {
     bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
       ...item,
       products: item.products ? {
         ...item.products,
-        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
                     item.products.product_images?.[0]?.image_path ?? null,
+        product_variants: item.products.product_variants ?? [],
       } : null,
     }));
   }
-  
+
   return bundle;
 }
 
 export async function createBundle(formData: BundleFormData): Promise<Bundle> {
   const supabase = getSupabaseAdminClient();
-  
+
   // Validar que haya al menos un producto
   if (!formData.items || formData.items.length === 0) {
     throw new Error("El bundle debe tener al menos un producto");
+  }
+
+  // Validar min_items y max_items
+  if (formData.min_items < 1) {
+    throw new Error("min_items debe ser al menos 1");
+  }
+  if (formData.max_items < formData.min_items) {
+    throw new Error("max_items debe ser mayor o igual a min_items");
   }
 
   // Calcular compare_at_price si no se proporcionó
@@ -257,6 +273,8 @@ export async function createBundle(formData: BundleFormData): Promise<Bundle> {
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
       image_path: formData.image_path ?? null,
+      min_items: formData.min_items,
+      max_items: formData.max_items,
     })
     .select()
     .single();
@@ -267,7 +285,6 @@ export async function createBundle(formData: BundleFormData): Promise<Bundle> {
   const itemsPayload = formData.items.map((item) => ({
     bundle_id: bundle.id,
     product_id: item.product_id,
-    variant_id: item.variant_id ?? null,
     quantity: item.quantity,
   }));
 
@@ -285,10 +302,18 @@ export async function updateBundle(
   formData: BundleFormData
 ): Promise<Bundle> {
   const supabase = getSupabaseAdminClient();
-  
+
   // Validar que haya al menos un producto
   if (!formData.items || formData.items.length === 0) {
     throw new Error("El bundle debe tener al menos un producto");
+  }
+
+  // Validar min_items y max_items
+  if (formData.min_items < 1) {
+    throw new Error("min_items debe ser al menos 1");
+  }
+  if (formData.max_items < formData.min_items) {
+    throw new Error("max_items debe ser mayor o igual a min_items");
   }
 
   // Calcular compare_at_price si no se proporcionó
@@ -330,6 +355,8 @@ export async function updateBundle(
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
       image_path: formData.image_path ?? null,
+      min_items: formData.min_items,
+      max_items: formData.max_items,
     })
     .eq("id", id)
     .select()
@@ -344,7 +371,6 @@ export async function updateBundle(
   const itemsPayload = formData.items.map((item) => ({
     bundle_id: id,
     product_id: item.product_id,
-    variant_id: item.variant_id ?? null,
     quantity: item.quantity,
   }));
 
@@ -359,7 +385,7 @@ export async function updateBundle(
 
 export async function deleteBundle(id: string): Promise<void> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { error } = await supabase
     .from("bundles")
     .delete()
@@ -390,17 +416,4 @@ export async function toggleBundleActive(id: string): Promise<Bundle> {
 
   if (error) throw new Error(error.message);
   return updated;
-}
-
-export async function getProductVariants(productId: string) {
-  const supabase = getSupabaseAdminClient();
-
-  const { data, error } = await supabase
-    .from("product_variants")
-    .select("*")
-    .eq("product_id", productId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return data ?? [];
 }

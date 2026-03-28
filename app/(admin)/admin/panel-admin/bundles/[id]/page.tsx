@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Trash2, Search, Package2, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Plus, Upload, Image as ImageIcon, Package2, ChevronRight, ChevronDown } from "lucide-react";
 import type { BundleWithItems } from "@/types/bundle";
 
 type Product = {
@@ -16,31 +16,22 @@ type Product = {
   stock: number;
   is_active: boolean;
   image_path?: string | null;
-  variants?: Array<{
-    id: string;
-    size: string;
-    color: string;
-    stock: number;
-  }>;
 };
 
 type BundleItem = {
   product_id: string;
-  variant_id: string | null;
   quantity: number;
 };
+
+type GroupedProducts = Record<string, Product[]>;
 
 export default function AdminBundleFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
-  const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [searching, setSearching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -51,9 +42,15 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     compare_at_price: "",
     is_active: true,
     image_path: "",
+    min_items: 1,
+    max_items: 1,
   });
 
   const [items, setItems] = useState<BundleItem[]>([]);
+  const [groupedProducts, setGroupedProducts] = useState<GroupedProducts>({});
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [showProductModal, setShowProductModal] = useState(false);
 
   const isEditMode = searchParams.has("edit");
 
@@ -83,11 +80,12 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         compare_at_price: bundle.compare_at_price ? String(bundle.compare_at_price) : "",
         is_active: bundle.is_active,
         image_path: bundle.image_path ?? "",
+        min_items: bundle.min_items ?? 1,
+        max_items: bundle.max_items ?? 1,
       });
       setItems(
         bundle.bundle_items.map((item) => ({
           product_id: item.product_id,
-          variant_id: item.variant_id,
           quantity: item.quantity,
         }))
       );
@@ -102,31 +100,33 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     }
   }
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery.trim().length >= 2) {
-        void searchProducts();
-      } else {
-        setSearchResults([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
-
-  async function searchProducts() {
-    setSearching(true);
+  async function loadAllProducts() {
+    setLoadingProducts(true);
     try {
-      const res = await fetch(`/api/admin/products?q=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch("/api/admin/products?byCategory=true");
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Error al buscar");
-      setSearchResults(body.products ?? []);
+      if (!res.ok) throw new Error(body.error ?? "Error al cargar productos");
+      setGroupedProducts(body.grouped ?? {});
     } catch (e) {
-      console.error("[Search products]", e);
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: e instanceof Error ? e.message : "No se pudieron cargar los productos",
+      });
     } finally {
-      setSearching(false);
+      setLoadingProducts(false);
     }
+  }
+
+  useEffect(() => {
+    if (showProductModal && Object.keys(groupedProducts).length === 0) {
+      void loadAllProducts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showProductModal]);
+
+  function toggleCategory(category: string) {
+    setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -135,12 +135,12 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
 
     setUploadingImage(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
+      const formDataImg = new FormData();
+      formDataImg.append("image", file);
 
       const res = await fetch("/api/admin/bundles/upload-image", {
         method: "POST",
-        body: formData,
+        body: formDataImg,
       });
 
       const result = await res.json();
@@ -179,12 +179,10 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       ...prev,
       {
         product_id: product.id,
-        variant_id: null,
         quantity: 1,
       },
     ]);
-    setSearchQuery("");
-    setSearchResults([]);
+    setShowProductModal(false);
   }
 
   function removeItem(index: number) {
@@ -194,12 +192,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   function updateItemQuantity(index: number, quantity: number) {
     setItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, quantity: Math.max(1, quantity) } : item))
-    );
-  }
-
-  function updateItemVariant(index: number, variantId: string | null) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, variant_id: variantId } : item))
     );
   }
 
@@ -265,9 +257,17 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   }
 
   const calculatedCompareAtPrice = items.reduce((sum, item) => {
-    const product = searchResults.find((p) => p.id === item.product_id);
+    const product = Object.values(groupedProducts)
+      .flat()
+      .find((p) => p.id === item.product_id);
     return sum + (product?.price ?? 0) * item.quantity;
   }, 0);
+
+  function getProductById(id: string): Product | undefined {
+    return Object.values(groupedProducts)
+      .flat()
+      .find((p) => p.id === id);
+  }
 
   return (
     <section className="space-y-6 max-w-4xl">
@@ -416,6 +416,47 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
             </div>
           </div>
 
+          {/* Configuración de items */}
+          <div className="card-base space-y-4">
+            <h2 className="text-base font-bold">Configuración del Bundle</h2>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Mínimo de productos a elegir *
+                </label>
+                <input
+                  className="input-base"
+                  type="number"
+                  min={1}
+                  value={formData.min_items}
+                  onChange={(e) => setFormData((p) => ({ ...p, min_items: Number(e.target.value) }))}
+                  required
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Cantidad mínima de productos que el cliente debe elegir
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Máximo de productos a elegir *
+                </label>
+                <input
+                  className="input-base"
+                  type="number"
+                  min={1}
+                  value={formData.max_items}
+                  onChange={(e) => setFormData((p) => ({ ...p, max_items: Number(e.target.value) }))}
+                  required
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Cantidad máxima de productos que el cliente puede elegir
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Precio */}
           <div className="card-base space-y-4">
             <h2 className="text-base font-bold">Precios</h2>
@@ -471,34 +512,41 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
 
           {/* Productos */}
           <div className="card-base space-y-4">
-            <h2 className="text-base font-bold">Productos del Bundle</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold">Productos Disponibles</h2>
+              <button
+                type="button"
+                onClick={() => setShowProductModal(true)}
+                className="btn-primary text-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <Icon icon={Plus} className="h-4 w-4" />
+                  Agregar Productos
+                </span>
+              </button>
+            </div>
 
-            {/* Buscador */}
-            <div className="relative">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
-                <Icon icon={Search} className="h-4 w-4 text-slate-400" />
-                <input
-                  className="w-full bg-transparent text-sm outline-none"
-                  type="text"
-                  placeholder="Buscar productos por nombre..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searching && <Icon icon={Package2} className="h-4 w-4 animate-spin text-slate-400" />}
+            {items.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+                <Icon icon={Package2} className="mx-auto h-8 w-8 text-slate-400" />
+                <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  No hay productos agregados
+                </p>
+                <p className="text-xs text-slate-500">
+                  Hacé click en &quot;Agregar Productos&quot; para seleccionar productos por categoría
+                </p>
               </div>
-
-              {searchResults.length > 0 && (
-                <div className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
-                  {searchResults.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => addProduct(product)}
-                      className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2 text-left last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+            ) : (
+              <div className="space-y-3">
+                {items.map((item, index) => {
+                  const product = getProductById(item.product_id);
+                  return (
+                    <div
+                      key={`${item.product_id}-${index}`}
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
                     >
-                      {/* Imagen */}
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                        {product.image_path ? (
+                        {product?.image_path ? (
                           <img
                             src={product.image_path}
                             alt={product.name}
@@ -511,65 +559,8 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
-                          {product.name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <span>{product.category ?? "Sin categoría"}</span>
-                          <span>·</span>
-                          <span className={product.stock > 0 ? "text-emerald-600" : "text-red-600"}>
-                            {product.stock > 0 ? `${product.stock} disp.` : "Sin stock"}
-                          </span>
-                          {!product.is_active && (
-                            <>
-                              <span>·</span>
-                              <span className="text-amber-600">Inactivo</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Precio */}
-                      <div className="text-right shrink-0">
-                        <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                          {formatMoney(product.price)}
-                        </span>
-                        {product.compare_at_price && product.compare_at_price > product.price && (
-                          <p className="text-xs line-through text-slate-400">
-                            {formatMoney(product.compare_at_price)}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Lista de productos */}
-            {items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-                <Icon icon={Package2} className="mx-auto h-8 w-8 text-slate-400" />
-                <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  No hay productos agregados
-                </p>
-                <p className="text-xs text-slate-500">
-                  Buscá y agregá productos usando el buscador de arriba
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {items.map((item, index) => {
-                  const product = searchResults.find((p) => p.id === item.product_id);
-                  return (
-                    <div
-                      key={`${item.product_id}-${index}`}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                           {product?.name ?? "Producto"}
                         </p>
                         <div className="mt-1 flex items-center gap-2">
@@ -577,19 +568,27 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                             type="number"
                             min={1}
                             value={item.quantity}
-                            onChange={(e) =>
-                              updateItemQuantity(index, Number(e.target.value))
-                            }
+                            onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
                             className="w-16 rounded border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
                           />
                           <span className="text-xs text-slate-500">unidades</span>
                         </div>
                       </div>
 
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                          {formatMoney((product?.price ?? 0) * item.quantity)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatMoney(product?.price ?? 0)} c/u
+                        </p>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => removeItem(index)}
                         className="text-red-600 hover:text-red-700"
+                        title="Eliminar"
                       >
                         <Icon icon={X} className="h-5 w-5" />
                       </button>
@@ -600,22 +599,150 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
             )}
           </div>
 
+          {/* Modal de Productos */}
+          {showProductModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900">
+                <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                    Agregar Productos
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowProductModal(false)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <Icon icon={X} className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 140px)" }}>
+                  {loadingProducts ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Icon icon={Package2} className="h-8 w-8 animate-spin text-slate-400" />
+                    </div>
+                  ) : Object.keys(groupedProducts).length === 0 ? (
+                    <div className="py-8 text-center text-sm text-slate-500">
+                      No hay productos disponibles
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {Object.entries(groupedProducts).map(([category, products]) => (
+                        <div key={category} className="rounded-xl border border-slate-200 dark:border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory(category)}
+                            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                          >
+                            <span className="font-semibold text-slate-900 dark:text-slate-50">
+                              {category} ({products.length})
+                            </span>
+                            <Icon
+                              icon={expandedCategories[category] ? ChevronDown : ChevronRight}
+                              className="h-5 w-5 text-slate-400"
+                            />
+                          </button>
+
+                          {expandedCategories[category] && (
+                            <div className="border-t border-slate-200 p-4 dark:border-slate-800">
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                {products.map((product) => (
+                                  <div
+                                    key={product.id}
+                                    className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                                        {product.image_path ? (
+                                          <img
+                                            src={product.image_path}
+                                            alt={product.name}
+                                            className="h-full w-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="flex h-full items-center justify-center text-slate-400">
+                                            <Icon icon={ImageIcon} className="h-6 w-6" />
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
+                                          {product.name}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                          Stock:{" "}
+                                          <span
+                                            className={
+                                              product.stock > 0
+                                                ? "text-emerald-600"
+                                                : "text-red-600"
+                                            }
+                                          >
+                                            {product.stock > 0 ? product.stock : "Sin stock"}
+                                          </span>
+                                        </p>
+                                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                                          {formatMoney(product.price)}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => addProduct(product)}
+                                      disabled={product.stock <= 0 || !product.is_active}
+                                      className="btn-primary mt-2 w-full text-xs"
+                                    >
+                                      Agregar
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowProductModal(false)}
+                    className="btn-secondary"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Submit */}
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={() => router.back()}
               className="btn-secondary"
-              disabled={isPending || saving}
+              disabled={saving}
             >
               Cancelar
             </button>
             <button
               type="submit"
               className="btn-primary"
-              disabled={isPending || saving}
+              disabled={saving}
             >
-              {saving ? "Guardando..." : isEditMode ? "Actualizar" : "Crear Bundle"}
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <Icon icon={Package2} className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </span>
+              ) : (
+                "Guardar Bundle"
+              )}
             </button>
           </div>
         </form>

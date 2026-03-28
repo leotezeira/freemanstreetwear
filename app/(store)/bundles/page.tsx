@@ -1,5 +1,4 @@
 import { getActiveBundles } from "@/lib/services/bundles.service";
-import { createSignedProductImageUrl } from "@/lib/services/product-images.service";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +65,11 @@ export default async function BundlesPage() {
                   <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
                     {bundle.description ?? "Combo especial de productos"}
                   </p>
+                  {bundle.min_items && bundle.max_items && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Elegí {bundle.min_items}{bundle.min_items !== bundle.max_items ? ` a ${bundle.max_items}` : ""} productos
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-baseline gap-2">

@@ -23,6 +23,10 @@ export type CartStoredLineItem = {
   height?: number | null;
   width?: number | null;
   length?: number | null;
+
+  // Bundle metadata (optional)
+  bundleId?: string | null;
+  bundleGroupId?: string | null;
 };
 
 export function cartLineKey(input: CartLineKeyInput) {
@@ -71,6 +75,8 @@ export function mergeCartItems(
       height: item.height ?? existing.height ?? null,
       width: item.width ?? existing.width ?? null,
       length: item.length ?? existing.length ?? null,
+      bundleId: item.bundleId ?? existing.bundleId ?? null,
+      bundleGroupId: item.bundleGroupId ?? existing.bundleGroupId ?? null,
     });
   }
 

@@ -32,6 +32,8 @@ export type AddToCartInput = {
   height?: number | null;
   width?: number | null;
   length?: number | null;
+  bundleId?: string | null;
+  bundleGroupId?: string | null;
 };
 
 export type CartTotals = {
@@ -110,6 +112,8 @@ function normalizeItem(input: AddToCartInput): CartStoredLineItem {
     height: input.height ?? null,
     width: input.width ?? null,
     length: input.length ?? null,
+    bundleId: input.bundleId ?? null,
+    bundleGroupId: input.bundleGroupId ?? null,
   };
 }
 
@@ -260,6 +264,8 @@ export const useCartStore = create<CartState>()(
                 height: p.height ?? it.height ?? null,
                 width: p.width ?? it.width ?? null,
                 length: p.length ?? it.length ?? null,
+                bundleId: it.bundleId ?? null,
+                bundleGroupId: it.bundleGroupId ?? null,
               };
             });
 
