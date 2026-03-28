@@ -32,7 +32,7 @@ async function createSignedProductImageUrl(filePath: string | null): Promise<str
 async function getBundleImageUrl(bundleId: string): Promise<string | null> {
   const supabase = getSupabaseAdminClient();
 
-  const { data } = await supabase
+  const { data, error: fetchError } = await supabase
     .from("bundle_images")
     .select("image_path")
     .eq("bundle_id", bundleId)
@@ -41,17 +41,28 @@ async function getBundleImageUrl(bundleId: string): Promise<string | null> {
     .limit(1)
     .maybeSingle();
 
-  if (!data?.image_path) return null;
+  if (fetchError) {
+    console.error("[getBundleImageUrl] Fetch error:", fetchError);
+    return null;
+  }
+
+  if (!data?.image_path) {
+    console.warn("[getBundleImageUrl] No image path found for bundle:", bundleId);
+    return null;
+  }
+
+  console.log("[getBundleImageUrl] Image path found:", data.image_path);
 
   const { data: urlData, error } = await supabase.storage
     .from("bundle-images")
     .createSignedUrl(data.image_path, 3600 * 24 * 30);
 
   if (error) {
-    console.error("[getBundleImageUrl] Error:", error);
+    console.error("[getBundleImageUrl] Signed URL error:", error);
     return null;
   }
 
+  console.log("[getBundleImageUrl] Signed URL generated:", urlData.signedUrl);
   return urlData.signedUrl;
 }
 

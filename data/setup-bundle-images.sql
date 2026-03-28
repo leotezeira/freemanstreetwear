@@ -1,10 +1,11 @@
 -- ============================================
--- CONFIGURACIÓN COMPLETA DE BUNDLE-IMAGES
+-- CONFIGURACIÓN DE BUCKET BUNDLE-IMAGES
 -- ============================================
 -- Ejecutar en Supabase SQL Editor
 -- ============================================
 
 -- 1. CREAR BUCKET (si no existe)
+-- Nota: Los buckets también se pueden crear desde el Dashboard → Storage
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'bundle-images',
@@ -18,64 +19,65 @@ ON CONFLICT (id) DO UPDATE SET
   file_size_limit = 8388608,
   allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
 
--- 2. HABILITAR RLS
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- ============================================
+-- POLÍTICAS DE STORAGE (desde Dashboard)
+-- ============================================
+-- Las políticas de storage NO se pueden crear vía SQL directamente
+-- porque requieren ser owner de storage.objects.
+--
+-- SEGUÍ ESTOS PASOS MANUALES:
+--
+-- 1. Ir a: https://app.supabase.com/project/YOUR_PROJECT/storage
+-- 2. Click en el bucket "bundle-images"
+-- 3. Click en "Policies" (pestaña superior)
+-- 4. Click en "New Policy"
+-- 5. Seleccionar "For full customization"
+-- 6. Crear las siguientes 4 políticas:
+--
+-- POLÍTICA 1 - INSERT (subir imágenes):
+-- Policy name: Usuarios autenticados pueden subir imágenes
+-- Action: INSERT
+-- Target: all
+-- Definition: (bucket_id = 'bundle-images')
+--
+-- POLÍTICA 2 - SELECT (ver imágenes):
+-- Policy name: Usuarios autenticados pueden ver imágenes
+-- Action: SELECT
+-- Target: all
+-- Definition: (bucket_id = 'bundle-images')
+--
+-- POLÍTICA 3 - UPDATE (actualizar imágenes):
+-- Policy name: Usuarios autenticados pueden actualizar imágenes
+-- Action: UPDATE
+-- Target: all
+-- Definition: (bucket_id = 'bundle-images')
+--
+-- POLÍTICA 4 - DELETE (eliminar imágenes):
+-- Policy name: Usuarios autenticados pueden eliminar imágenes
+-- Action: DELETE
+-- Target: all
+-- Definition: (bucket_id = 'bundle-images')
+-- ============================================
 
--- 3. POLÍTICAS PARA BUNDLE-IMAGES
-
--- Permitir INSERT a usuarios autenticados
-DROP POLICY IF EXISTS "Usuarios autenticados pueden subir imágenes de bundles" ON storage.objects;
-CREATE POLICY "Usuarios autenticados pueden subir imágenes de bundles"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'bundle-images');
-
--- Permitir SELECT (lectura) a usuarios autenticados
-DROP POLICY IF EXISTS "Usuarios autenticados pueden ver imágenes de bundles" ON storage.objects;
-CREATE POLICY "Usuarios autenticados pueden ver imágenes de bundles"
-ON storage.objects FOR SELECT
-TO authenticated
-USING (bucket_id = 'bundle-images');
-
--- Permitir UPDATE a usuarios autenticados
-DROP POLICY IF EXISTS "Usuarios autenticados pueden actualizar imágenes de bundles" ON storage.objects;
-CREATE POLICY "Usuarios autenticados pueden actualizar imágenes de bundles"
-ON storage.objects FOR UPDATE
-TO authenticated
-USING (bucket_id = 'bundle-images');
-
--- Permitir DELETE a usuarios autenticados
-DROP POLICY IF EXISTS "Usuarios autenticados pueden eliminar imágenes de bundles" ON storage.objects;
-CREATE POLICY "Usuarios autenticados pueden eliminar imágenes de bundles"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (bucket_id = 'bundle-images');
-
--- 4. VERIFICAR QUE EL BUCKET EXISTE
+-- 2. VERIFICAR QUE EL BUCKET EXISTE
 SELECT 
   id,
   name,
   public,
   file_size_limit,
-  allowed_mime_types
+  allowed_mime_types,
+  created_at
 FROM storage.buckets
 WHERE id = 'bundle-images';
 
--- 5. VERIFICAR POLÍTICAS
-SELECT 
-  schemaname,
-  tablename,
-  policyname,
-  permissive,
-  roles,
-  cmd
-FROM pg_policies
-WHERE tablename = 'objects'
-  AND policyname LIKE '%bundles%';
-
 -- ============================================
--- NOTAS:
--- 1. El bucket debe ser PRIVADO (public = false)
--- 2. Usamos signed URLs con validez de 30 días
--- 3. Solo usuarios autenticados pueden acceder
+-- ALTERNATIVA: CREAR BUCKET DESDE EL DASHBOARD
+-- ============================================
+-- 1. Ir a Storage en Supabase Dashboard
+-- 2. Click "Create bucket"
+-- 3. Nombre: bundle-images
+-- 4. Public: OFF (privado)
+-- 5. File size limit: 8388608 (8MB)
+-- 6. Allowed MIME types: image/jpeg, image/png, image/webp
+-- 7. Click "Create bucket"
 -- ============================================
