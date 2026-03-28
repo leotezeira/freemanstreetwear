@@ -22,13 +22,17 @@ export type BundleItem = {
 export type BundleWithItems = Bundle & {
   bundle_items: (BundleItem & {
     products: {
+      id: string;
       name: string;
       category: string | null;
       price: number;
+      compare_at_price: number | null;
       is_active: boolean;
       stock: number;
+      image_path: string | null;
     } | null;
     product_variants: {
+      id: string;
       size: string;
       color: string;
       sku: string | null;

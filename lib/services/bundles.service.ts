@@ -3,7 +3,7 @@ import type { Bundle, BundleWithItems, BundleFormData } from "@/types/bundle";
 
 export async function getBundles(): Promise<BundleWithItems[]> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -11,13 +11,20 @@ export async function getBundles(): Promise<BundleWithItems[]> {
       bundle_items (
         *,
         products (
+          id,
           name,
           category,
           price,
+          compare_at_price,
           is_active,
-          stock
+          stock,
+          product_images (
+            image_path,
+            is_primary
+          )
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -29,12 +36,25 @@ export async function getBundles(): Promise<BundleWithItems[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+  
+  const normalized = (data ?? []).map((bundle: any) => ({
+    ...bundle,
+    bundle_items: (bundle.bundle_items ?? []).map((item: any) => ({
+      ...item,
+      products: item.products ? {
+        ...item.products,
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+                    item.products.product_images?.[0]?.image_path ?? null,
+      } : null,
+    })),
+  }));
+  
+  return normalized;
 }
 
 export async function getActiveBundles(): Promise<BundleWithItems[]> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -42,13 +62,20 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
       bundle_items (
         *,
         products (
+          id,
           name,
           category,
           price,
+          compare_at_price,
           is_active,
-          stock
+          stock,
+          product_images (
+            image_path,
+            is_primary
+          )
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -61,12 +88,25 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+  
+  const normalized = (data ?? []).map((bundle: any) => ({
+    ...bundle,
+    bundle_items: (bundle.bundle_items ?? []).map((item: any) => ({
+      ...item,
+      products: item.products ? {
+        ...item.products,
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+                    item.products.product_images?.[0]?.image_path ?? null,
+      } : null,
+    })),
+  }));
+  
+  return normalized;
 }
 
 export async function getBundleById(id: string): Promise<BundleWithItems | null> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -74,13 +114,20 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
       bundle_items (
         *,
         products (
+          id,
           name,
           category,
           price,
+          compare_at_price,
           is_active,
-          stock
+          stock,
+          product_images (
+            image_path,
+            is_primary
+          )
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -93,12 +140,25 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
     .single();
 
   if (error) return null;
-  return data;
+  
+  const bundle: any = data;
+  if (bundle) {
+    bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
+      ...item,
+      products: item.products ? {
+        ...item.products,
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+                    item.products.product_images?.[0]?.image_path ?? null,
+      } : null,
+    }));
+  }
+  
+  return bundle;
 }
 
 export async function getBundleBySlug(slug: string): Promise<BundleWithItems | null> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -106,13 +166,20 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
       bundle_items (
         *,
         products (
+          id,
           name,
           category,
           price,
+          compare_at_price,
           is_active,
-          stock
+          stock,
+          product_images (
+            image_path,
+            is_primary
+          )
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -126,7 +193,20 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
     .single();
 
   if (error) return null;
-  return data;
+  
+  const bundle: any = data;
+  if (bundle) {
+    bundle.bundle_items = (bundle.bundle_items ?? []).map((item: any) => ({
+      ...item,
+      products: item.products ? {
+        ...item.products,
+        image_path: item.products.product_images?.find((img: any) => img.is_primary)?.image_path ?? 
+                    item.products.product_images?.[0]?.image_path ?? null,
+      } : null,
+    }));
+  }
+  
+  return bundle;
 }
 
 export async function createBundle(formData: BundleFormData): Promise<Bundle> {
@@ -290,7 +370,7 @@ export async function deleteBundle(id: string): Promise<void> {
 
 export async function toggleBundleActive(id: string): Promise<Bundle> {
   const supabase = getSupabaseAdminClient();
-  
+
   // Obtener estado actual
   const { data: current } = await supabase
     .from("bundles")
@@ -310,4 +390,17 @@ export async function toggleBundleActive(id: string): Promise<Bundle> {
 
   if (error) throw new Error(error.message);
   return updated;
+}
+
+export async function getProductVariants(productId: string) {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from("product_variants")
+    .select("*")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
