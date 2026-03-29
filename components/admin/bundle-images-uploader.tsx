@@ -2,14 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
-import {
-  GripVertical,
-  Image as ImageIcon,
-  Plus,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { GripVertical, Image as ImageIcon, Plus, Trash2, Upload } from "lucide-react";
 
 const MAX_IMAGES_PER_BUNDLE = 6;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -37,7 +30,6 @@ function moveItem<T>(arr: T[], from: number, to: number) {
 export function BundleImagesUploader({ bundleId, initialImages = [] }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [images, setImages] = useState<BundleImage[]>(initialImages);
-  const [dragOver, setDragOver] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [primaryIndex, setPrimaryIndex] = useState<number>(0);
   const [uploading, setUploading] = useState(false);
@@ -105,13 +97,6 @@ export function BundleImagesUploader({ bundleId, initialImages = [] }: Props) {
     } finally {
       setUploading(false);
     }
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    await handleFiles(files);
   };
 
   const handleDelete = async (index: number) => {

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Package2, ChevronRight, ChevronDown } from "lucide-react";
+import { X, Plus, Package2, ChevronRight, ChevronDown, Image as ImageIcon } from "lucide-react";
 import type { BundleWithItems, BundleImage } from "@/types/bundle";
 import { BundleImagesUploader } from "@/components/admin/bundle-images-uploader";
 
