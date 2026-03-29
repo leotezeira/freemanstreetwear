@@ -28,8 +28,6 @@ export default function AdminBundleNewPage() {
   const router = useRouter();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -38,7 +36,6 @@ export default function AdminBundleNewPage() {
     price: "",
     compare_at_price: "",
     is_active: true,
-    image_path: "",
     min_items: 1,
     max_items: 1,
   });
@@ -76,42 +73,6 @@ export default function AdminBundleNewPage() {
 
   function toggleCategory(category: string) {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
-  }
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingImage(true);
-    try {
-      const formDataImg = new FormData();
-      formDataImg.append("image", file);
-
-      const res = await fetch("/api/admin/bundles/upload-image", {
-        method: "POST",
-        body: formDataImg,
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? "Error al subir");
-
-      // Guardar el filePath relativo (la URL firmada se genera al leer)
-      setFormData((p) => ({ ...p, image_path: result.filePath }));
-      toast.push({
-        variant: "success",
-        title: "Imagen subida",
-        description: "La imagen fue subida exitosamente",
-      });
-    } catch (err) {
-      toast.push({
-        variant: "error",
-        title: "Error",
-        description: err instanceof Error ? err.message : "No se pudo subir la imagen",
-      });
-    } finally {
-      setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
   }
 
   function addProduct(product: Product) {
@@ -189,13 +150,20 @@ export default function AdminBundleNewPage() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.error ?? "Error al guardar");
 
+      const bundleId = result.bundle?.id;
+
       toast.push({
         variant: "success",
         title: "Guardado",
         description: "El bundle fue guardado exitosamente",
       });
 
-      router.push("/admin/panel-admin/bundles");
+      // Redirigir a la página de edición para subir imágenes
+      if (bundleId) {
+        router.push(`/admin/panel-admin/bundles/${bundleId}?edit=1`);
+      } else {
+        router.push("/admin/panel-admin/bundles");
+      }
     } catch (e) {
       toast.push({
         variant: "error",
@@ -279,59 +247,6 @@ export default function AdminBundleNewPage() {
               />
               <p className="mt-1 text-xs text-slate-500">Se auto-genera si lo dejás vacío</p>
             </div>
-
-            <div className="md:col-span-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Imagen del Bundle
-              </label>
-              <div className="mt-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  disabled={uploadingImage}
-                  className="hidden"
-                />
-                {formData.image_path ? (
-                  <div className="relative inline-block">
-                    <img
-                      src={formData.image_path}
-                      alt="Vista previa"
-                      className="h-32 w-32 object-cover rounded-xl border border-slate-200 dark:border-slate-800"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFormData((p) => ({ ...p, image_path: "" }))}
-                      className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1.5 text-white hover:bg-red-600 transition"
-                    >
-                      <Icon icon={X} className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingImage}
-                    className="flex h-32 w-32 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="text-center">
-                      <Icon icon={Upload} className="mx-auto h-8 w-8 text-slate-400" />
-                      <p className="mt-1 text-xs text-slate-500">Click para subir</p>
-                    </div>
-                  </button>
-                )}
-                {uploadingImage && (
-                  <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
-                    <Icon icon={Package2} className="h-3 w-3 animate-spin" />
-                    Subiendo imagen...
-                  </p>
-                )}
-                <p className="mt-2 text-xs text-slate-500">
-                  Formatos: JPG, PNG · Máx: 8MB · Se convierte a PNG automáticamente
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -346,6 +261,13 @@ export default function AdminBundleNewPage() {
               Bundle activo (visible en la tienda)
             </label>
           </div>
+        </div>
+
+        {/* Nota sobre imágenes */}
+        <div className="card-base bg-blue-50 dark:bg-blue-950/30">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Nota:</strong> Después de crear el bundle, podrás subir imágenes en la página de edición.
+          </p>
         </div>
 
         {/* Configuración de items */}
