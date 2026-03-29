@@ -3,71 +3,11 @@ import type { Bundle, BundleWithItems, BundleFormData } from "@/types/bundle";
 import { createSignedBundleImageUrl } from "@/lib/services/bundle-images.service";
 
 /**
- * Genera URL firmada para imagen de producto
+ * Genera URL firmada para la imagen del bundle
  */
-async function createSignedProductImageUrl(filePath: string | null): Promise<string | null> {
-  if (!filePath) return null;
-  
-  const supabase = getSupabaseAdminClient();
-  
-  try {
-    const { data, error } = await supabase.storage
-      .from("product-images")
-      .createSignedUrl(filePath, 3600 * 24 * 30);
-    
-    if (error) {
-      console.error("[createSignedProductImageUrl] Error:", error);
-      return null;
-    }
-    
-    return data.signedUrl;
-  } catch (e) {
-    console.error("[createSignedProductImageUrl] Exception:", e);
-    return null;
-  }
-}
-
-/**
- * Obtiene imagen principal de bundle con URL firmada
- */
-async function getBundleImageUrl(bundleId: string): Promise<string | null> {
-  const supabase = getSupabaseAdminClient();
-
-  const { data, error: fetchError } = await supabase
-    .from("bundle_images")
-    .select("image_path")
-    .eq("bundle_id", bundleId)
-    .eq("is_primary", true)
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error("[getBundleImageUrl] Fetch error:", fetchError);
-    return null;
-  }
-
-  if (!data?.image_path) {
-    return null;
-  }
-
-  return createSignedBundleImageUrl(data.image_path);
-}
-
-/**
- * Procesa las imágenes de los productos para convertir filePaths a URLs firmadas
- */
-async function processProductImages(products: any[]) {
-  return await Promise.all(products.map(async (product: any) => {
-    const primaryImage = product.product_images?.find((img: any) => img.is_primary) ?? product.product_images?.[0];
-    const imageUrl = await createSignedProductImageUrl(primaryImage?.image_path ?? null);
-    
-    return {
-      ...product,
-      image_path: imageUrl,
-      product_variants: product.product_variants ?? [],
-    };
-  }));
+async function resolveBundleImage(imagePath: string | null): Promise<string | null> {
+  if (!imagePath) return null;
+  return createSignedBundleImageUrl(imagePath);
 }
 
 export async function getBundles(): Promise<BundleWithItems[]> {
@@ -107,22 +47,22 @@ export async function getBundles(): Promise<BundleWithItems[]> {
 
   if (error) throw new Error(error.message);
 
-  const normalized = await Promise.all((data ?? []).map(async (bundle: any) => {
-    const imageUrl = await getBundleImageUrl(bundle.id);
-    
-    const processedItems = await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
+  // Resolver URLs firmadas para bundles y productos
+  return await Promise.all((data ?? []).map(async (bundle: any) => ({
+    ...bundle,
+    image_path: await resolveBundleImage(bundle.image_path),
+    bundle_items: await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
       ...item,
-      products: item.products ? await processProductImages([item.products]).then(r => r[0]) : null,
-    })));
-
-    return {
-      ...bundle,
-      image_path: imageUrl,
-      bundle_items: processedItems,
-    };
-  }));
-
-  return normalized;
+      products: item.products ? {
+        ...item.products,
+        image_path: await resolveBundleImage(
+          item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
+          item.products.product_images?.[0]?.image_path
+        ),
+        product_variants: item.products.product_variants ?? [],
+      } : null,
+    }))),
+  })));
 }
 
 export async function getActiveBundles(): Promise<BundleWithItems[]> {
@@ -163,22 +103,21 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
 
   if (error) throw new Error(error.message);
 
-  const normalized = await Promise.all((data ?? []).map(async (bundle: any) => {
-    const imageUrl = await getBundleImageUrl(bundle.id);
-    
-    const processedItems = await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
+  return await Promise.all((data ?? []).map(async (bundle: any) => ({
+    ...bundle,
+    image_path: await resolveBundleImage(bundle.image_path),
+    bundle_items: await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
       ...item,
-      products: item.products ? await processProductImages([item.products]).then(r => r[0]) : null,
-    })));
-
-    return {
-      ...bundle,
-      image_path: imageUrl,
-      bundle_items: processedItems,
-    };
-  }));
-
-  return normalized;
+      products: item.products ? {
+        ...item.products,
+        image_path: await resolveBundleImage(
+          item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
+          item.products.product_images?.[0]?.image_path
+        ),
+        product_variants: item.products.product_variants ?? [],
+      } : null,
+    }))),
+  })));
 }
 
 export async function getBundleById(id: string): Promise<BundleWithItems | null> {
@@ -220,16 +159,21 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
   if (error) return null;
 
   const bundle: any = data;
-  if (bundle) {
-    bundle.image_path = await getBundleImageUrl(bundle.id);
-    
-    bundle.bundle_items = await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
+  return {
+    ...bundle,
+    image_path: await resolveBundleImage(bundle.image_path),
+    bundle_items: await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
       ...item,
-      products: item.products ? await processProductImages([item.products]).then(r => r[0]) : null,
-    })));
-  }
-
-  return bundle;
+      products: item.products ? {
+        ...item.products,
+        image_path: await resolveBundleImage(
+          item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
+          item.products.product_images?.[0]?.image_path
+        ),
+        product_variants: item.products.product_variants ?? [],
+      } : null,
+    }))),
+  };
 }
 
 export async function getBundleBySlug(slug: string): Promise<BundleWithItems | null> {
@@ -272,16 +216,21 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
   if (error) return null;
 
   const bundle: any = data;
-  if (bundle) {
-    bundle.image_path = await getBundleImageUrl(bundle.id);
-    
-    bundle.bundle_items = await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
+  return {
+    ...bundle,
+    image_path: await resolveBundleImage(bundle.image_path),
+    bundle_items: await Promise.all((bundle.bundle_items ?? []).map(async (item: any) => ({
       ...item,
-      products: item.products ? await processProductImages([item.products]).then(r => r[0]) : null,
-    })));
-  }
-
-  return bundle;
+      products: item.products ? {
+        ...item.products,
+        image_path: await resolveBundleImage(
+          item.products.product_images?.find((img: any) => img.is_primary)?.image_path ??
+          item.products.product_images?.[0]?.image_path
+        ),
+        product_variants: item.products.product_variants ?? [],
+      } : null,
+    }))),
+  };
 }
 
 export async function createBundle(formData: BundleFormData): Promise<Bundle> {
@@ -333,6 +282,7 @@ export async function createBundle(formData: BundleFormData): Promise<Bundle> {
       price: formData.price,
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
+      image_path: formData.image_path ?? null,
       min_items: formData.min_items,
       max_items: formData.max_items,
     })
@@ -408,6 +358,7 @@ export async function updateBundle(
       price: formData.price,
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
+      image_path: formData.image_path ?? null,
       min_items: formData.min_items,
       max_items: formData.max_items,
     })
