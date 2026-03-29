@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
 
-const BUNDLE_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
-const MAX_BUNDLE_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
+const PRODUCT_IMAGES_BUCKET = process.env.PRODUCT_IMAGES_BUCKET ?? "product-images";
+const MAX_BUNDLE_IMAGE_BYTES = Number(process.env.MAX_BUNDLE_IMAGE_BYTES ?? String(4 * 1024 * 1024));
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_IMAGE_WIDTH = 1600;
-const MAX_IMAGES_PER_BUNDLE = 5;
+const MAX_IMAGE_WIDTH = Number(process.env.MAX_BUNDLE_IMAGE_WIDTH ?? "1600");
+const WEBP_QUALITY = Number(process.env.BUNDLE_IMAGE_WEBP_QUALITY ?? "82");
+const MAX_IMAGES_PER_BUNDLE = 6;
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -73,21 +74,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const uploadedPaths: string[] = [];
     const baseSortOrder = (maxSortRow?.sort_order ?? -1) + 1;
     for (const file of uploadFiles) {
-      const filename = `${crypto.randomUUID()}.png`;
+      const filename = `${crypto.randomUUID()}.webp`;
       const path = `bundles/${bundleId}/${filename}`;
 
-      // Leer buffer y convertir a PNG
       const rawBuffer = Buffer.from(await file.arrayBuffer());
-      const pngBuffer = await sharp(rawBuffer)
+      const webpBuffer = await sharp(rawBuffer)
         .rotate()
         .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
-        .png({ quality: 90, compressionLevel: 6 })
+        .webp({ quality: WEBP_QUALITY })
         .toBuffer();
 
       const { error: uploadError } = await supabase.storage
-        .from(BUNDLE_IMAGES_BUCKET)
-        .upload(path, pngBuffer, {
-          contentType: "image/png",
+        .from(PRODUCT_IMAGES_BUCKET)
+        .upload(path, webpBuffer, {
+          contentType: "image/webp",
           upsert: false,
         });
 
@@ -197,7 +197,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
     // Delete from storage
     if (imageData?.image_path) {
-      await supabase.storage.from(BUNDLE_IMAGES_BUCKET).remove([imageData.image_path]);
+      await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove([imageData.image_path]);
     }
 
     // Delete from database

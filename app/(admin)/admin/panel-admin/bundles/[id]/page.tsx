@@ -4,8 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Upload, Image as ImageIcon, Package2, ChevronRight, ChevronDown } from "lucide-react";
-import type { BundleWithItems } from "@/types/bundle";
+import { X, Plus, Package2, ChevronRight, ChevronDown } from "lucide-react";
+import type { BundleWithItems, BundleImage } from "@/types/bundle";
+import { BundleImagesUploader } from "@/components/admin/bundle-images-uploader";
 
 type Product = {
   id: string;
@@ -31,7 +32,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [bundleId, setBundleId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -41,7 +42,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     price: "",
     compare_at_price: "",
     is_active: true,
-    image_path: "",
     min_items: 1,
     max_items: 1,
   });
@@ -51,6 +51,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showProductModal, setShowProductModal] = useState(false);
+  const [bundleImages, setBundleImages] = useState<BundleImage[]>([]);
 
   const isEditMode = searchParams.has("edit");
 
@@ -65,6 +66,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     const { id } = await params;
     if (!id) return;
 
+    setBundleId(id);
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/bundles/${id}`);
@@ -79,7 +81,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         price: String(bundle.price),
         compare_at_price: bundle.compare_at_price ? String(bundle.compare_at_price) : "",
         is_active: bundle.is_active,
-        image_path: bundle.image_path ?? "",
         min_items: bundle.min_items ?? 1,
         max_items: bundle.max_items ?? 1,
       });
@@ -89,6 +90,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
           quantity: item.quantity,
         }))
       );
+      setBundleImages(bundle.bundle_images ?? []);
     } catch (e) {
       toast.push({
         variant: "error",
@@ -127,42 +129,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
 
   function toggleCategory(category: string) {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
-  }
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingImage(true);
-    try {
-      const formDataImg = new FormData();
-      formDataImg.append("image", file);
-
-      const res = await fetch("/api/admin/bundles/upload-image", {
-        method: "POST",
-        body: formDataImg,
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? "Error al subir");
-
-      // Guardar el filePath relativo (la URL firmada se genera al leer)
-      setFormData((p) => ({ ...p, image_path: result.filePath }));
-      toast.push({
-        variant: "success",
-        title: "Imagen subida",
-        description: "La imagen fue subida exitosamente",
-      });
-    } catch (err) {
-      toast.push({
-        variant: "error",
-        title: "Error",
-        description: err instanceof Error ? err.message : "No se pudo subir la imagen",
-      });
-    } finally {
-      setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
   }
 
   function addProduct(product: Product) {
@@ -340,59 +306,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                   Se auto-genera si lo dejás vacío
                 </p>
               </div>
-
-              <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  Imagen del Bundle
-                </label>
-                <div className="mt-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploadingImage}
-                    className="hidden"
-                  />
-                  {formData.image_path ? (
-                    <div className="relative inline-block">
-                      <img
-                        src={formData.image_path}
-                        alt="Vista previa"
-                        className="h-32 w-32 object-cover rounded-xl border border-slate-200 dark:border-slate-800"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData((p) => ({ ...p, image_path: "" }))}
-                        className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1.5 text-white hover:bg-red-600 transition"
-                      >
-                        <Icon icon={X} className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingImage}
-                      className="flex h-32 w-32 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="text-center">
-                        <Icon icon={Upload} className="mx-auto h-8 w-8 text-slate-400" />
-                        <p className="mt-1 text-xs text-slate-500">Click para subir</p>
-                      </div>
-                    </button>
-                  )}
-                  {uploadingImage && (
-                    <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
-                      <Icon icon={Package2} className="h-3 w-3 animate-spin" />
-                      Subiendo imagen...
-                    </p>
-                  )}
-                  <p className="mt-2 text-xs text-slate-500">
-                    Formatos: JPG, PNG · Máx: 8MB · Se convierte a PNG automáticamente
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -408,6 +321,13 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
               </label>
             </div>
           </div>
+
+          {/* Imágenes del Bundle */}
+          {isEditMode && bundleId && (
+            <div className="card-base">
+              <BundleImagesUploader bundleId={bundleId} initialImages={bundleImages} />
+            </div>
+          )}
 
           {/* Configuración de items */}
           <div className="card-base space-y-4">

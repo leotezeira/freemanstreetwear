@@ -1,18 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { uploadBundleImage } from "@/lib/services/bundle-images.service";
+import { NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
-  try {
-    console.log("[upload-image API] Request received");
-    const formData = await request.formData();
-    const filePath = await uploadBundleImage(formData);
-    
-    console.log("[upload-image API] File uploaded successfully:", filePath);
-    // Devolver el filePath relativo (no URL)
-    return NextResponse.json({ filePath });
-  } catch (error) {
-    console.error("[api:admin:bundles:upload-image]", error);
-    const message = error instanceof Error ? error.message : "Error al subir la imagen";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+/**
+ * @deprecated Este endpoint está deprecado.
+ * Usar /api/admin/bundles/[id]/images para subir imágenes de bundles.
+ */
+export async function POST() {
+  return NextResponse.json(
+    { error: "Endpoint deprecado. Usar /api/admin/bundles/[id]/images" },
+    { status: 410 }
+  );
 }
