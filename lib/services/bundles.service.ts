@@ -175,14 +175,21 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
 
   // Cargar todas las variantes de cada producto (no solo la asignada al bundle item)
   const bundleItemsWithAllVariants = await Promise.all(
-    (data.bundle_items ?? []).map(async (item) => {
+    (data.bundle_items ?? []).map(async (item: {
+      id: string;
+      bundle_id: string;
+      product_id: string;
+      variant_id: string | null;
+      products: any;
+      product_variants: any;
+    }) => {
       if (item.product_id) {
         const { data: allVariants } = await supabase
           .from("product_variants")
           .select("id, size, color, sku, stock, price")
           .eq("product_id", item.product_id)
           .eq("is_active", true);
-        
+
         // Adjuntar todas las variantes al item
         return {
           ...item,
