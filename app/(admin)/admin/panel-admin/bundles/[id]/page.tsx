@@ -249,7 +249,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const calculatedCompareAtPrice = (() => {
     if (items.length === 0) return 0;
     const avgPrice = items.reduce((sum, item) => {
-      const product = searchResults.find((p) => p.id === item.product_id);
+      const product = allProducts.find((p) => p.id === item.product_id);
       return sum + (product?.price ?? 0);
     }, 0) / items.length;
     return Math.round(avgPrice * Number(formData.required_quantity || 3));
