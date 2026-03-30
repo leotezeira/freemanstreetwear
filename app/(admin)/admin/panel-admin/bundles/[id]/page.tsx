@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Trash2, Search, Package2, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Plus, Search, Package2, Upload, Image as ImageIcon, ChevronDown, ChevronRight, CheckSquare, Square } from "lucide-react";
 import type { BundleWithItems } from "@/types/bundle";
 
 type Product = {
@@ -27,6 +27,11 @@ type Product = {
 type BundleItem = {
   product_id: string;
   variant_id: string | null; // null = el cliente elige la variante
+};
+
+type CategoryGroup = {
+  category: string | null;
+  products: Product[];
 };
 
 export default function AdminBundleFormPage({ params }: { params: Promise<{ id?: string }> }) {
@@ -54,6 +59,11 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   });
 
   const [items, setItems] = useState<BundleItem[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEditMode = searchParams.has("edit");
 
@@ -61,8 +71,29 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     if (isEditMode) {
       void loadBundle();
     }
+    void loadAllProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode]);
+
+  async function loadAllProducts() {
+    setLoadingProducts(true);
+    try {
+      const res = await fetch("/api/admin/products/all");
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Error al cargar");
+      setAllProducts(body.products ?? []);
+      
+      // Expandir primera categoría por defecto
+      const categories = Array.from(new Set((body.products ?? []).map((p: Product) => p.category ?? "Sin categoría")));
+      if (categories.length > 0) {
+        setExpandedCategories({ [categories[0]]: true });
+      }
+    } catch (e) {
+      console.error("[Load products]", e);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
 
   async function loadBundle() {
     const { id } = await params;
@@ -102,88 +133,39 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     }
   }
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery.trim().length >= 2) {
-        void searchProducts();
-      } else {
-        setSearchResults([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
-
-  async function searchProducts() {
-    setSearching(true);
-    try {
-      const res = await fetch(`/api/admin/products?q=${encodeURIComponent(searchQuery)}`);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Error al buscar");
-      setSearchResults(body.products ?? []);
-    } catch (e) {
-      console.error("[Search products]", e);
-    } finally {
-      setSearching(false);
-    }
+  function toggleCategory(category: string) {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [category]: !prev[category],
+    }));
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingImage(true);
-    try {
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const res = await fetch("/api/admin/bundles/upload-image", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? "Error al subir");
-
-      setFormData((p) => ({ ...p, image_path: result.imageUrl }));
-      toast.push({
-        variant: "success",
-        title: "Imagen subida",
-        description: "La imagen fue subida exitosamente",
-      });
-    } catch (err) {
+  function addProducts(products: Product[]) {
+    const existingIds = new Set(items.map((item) => item.product_id));
+    const newProducts = products.filter((p) => !existingIds.has(p.id));
+    
+    if (newProducts.length === 0) {
       toast.push({
         variant: "error",
-        title: "Error",
-        description: err instanceof Error ? err.message : "No se pudo subir la imagen",
-      });
-    } finally {
-      setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  function addProduct(product: Product) {
-    const alreadyAdded = items.some((item) => item.product_id === product.id);
-    if (alreadyAdded) {
-      toast.push({
-        variant: "error",
-        title: "Producto ya agregado",
-        description: "Este producto ya está en el pool del bundle",
+        title: "Productos ya agregados",
+        description: "Todos los productos seleccionados ya están en el pool",
       });
       return;
     }
 
     setItems((prev) => [
       ...prev,
-      {
+      ...newProducts.map((product) => ({
         product_id: product.id,
-        variant_id: null, // El cliente elige la variante
-      },
+        variant_id: null,
+      })),
     ]);
-    setSearchQuery("");
-    setSearchResults([]);
+    
+    toast.push({
+      variant: "success",
+      title: "Productos agregados",
+      description: `${newProducts.length} productos fueron agregados al pool`,
+    });
   }
 
   function removeItem(index: number) {
@@ -502,120 +484,191 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
           <div className="card-base space-y-4">
             <h2 className="text-base font-bold">Productos del Bundle</h2>
 
-            {/* Buscador */}
-            <div className="relative">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
-                <Icon icon={Search} className="h-4 w-4 text-slate-400" />
-                <input
-                  className="w-full bg-transparent text-sm outline-none"
-                  type="text"
-                  placeholder="Buscar productos por nombre..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searching && <Icon icon={Package2} className="h-4 w-4 animate-spin text-slate-400" />}
-              </div>
-
-              {searchResults.length > 0 && (
-                <div className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
-                  {searchResults.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => addProduct(product)}
-                      className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2 text-left last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
-                    >
-                      {/* Imagen */}
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                        {product.image_path ? (
-                          <img
-                            src={product.image_path}
-                            alt={product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-slate-400">
-                            <Icon icon={ImageIcon} className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
-                          {product.name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <span>{product.category ?? "Sin categoría"}</span>
-                          <span>·</span>
-                          <span className={product.stock > 0 ? "text-emerald-600" : "text-red-600"}>
-                            {product.stock > 0 ? `${product.stock} disp.` : "Sin stock"}
-                          </span>
-                          {!product.is_active && (
-                            <>
-                              <span>·</span>
-                              <span className="text-amber-600">Inactivo</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Precio */}
-                      <div className="text-right shrink-0">
-                        <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                          {formatMoney(product.price)}
-                        </span>
-                        {product.compare_at_price && product.compare_at_price > product.price && (
-                          <p className="text-xs line-through text-slate-400">
-                            {formatMoney(product.compare_at_price)}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+            {/* Filtro por categoría */}
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                  selectedCategory === null
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+              >
+                Todas las categorías
+              </button>
+              {Array.from(new Set(allProducts.map((p) => p.category ?? "Sin categoría"))).map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                    selectedCategory === category
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
             </div>
 
-            {/* Lista de productos */}
-            {items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-                <Icon icon={Package2} className="mx-auto h-8 w-8 text-slate-400" />
-                <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  No hay productos en el pool
-                </p>
-                <p className="text-xs text-slate-500">
-                  Buscá y agregá productos usando el buscador de arriba
-                </p>
+            {/* Lista de productos por categoría */}
+            {loadingProducts ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-900" />
+                ))}
               </div>
             ) : (
-              <div className="space-y-3">
-                {items.map((item, index) => {
-                  const product = searchResults.find((p) => p.id === item.product_id);
-                  return (
-                    <div
-                      key={`${item.product_id}-${index}`}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                          {product?.name ?? "Producto"}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {product?.category ?? "Sin categoría"} · El cliente elige talle/color
-                        </p>
-                      </div>
+              <div className="space-y-2">
+                {Array.from(
+                  new Set(
+                    (selectedCategory
+                      ? allProducts.filter((p) => p.category === selectedCategory)
+                      : allProducts
+                    ).map((p) => p.category ?? "Sin categoría")
+                  )
+                ).map((category) => {
+                  const categoryProducts = (selectedCategory
+                    ? allProducts.filter((p) => p.category === selectedCategory)
+                    : allProducts
+                  ).filter((p) => (p.category ?? "Sin categoría") === category);
+                  const isExpanded = expandedCategories[category] ?? false;
 
+                  return (
+                    <div key={category} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                       <button
                         type="button"
-                        onClick={() => removeItem(index)}
-                        className="text-red-600 hover:text-red-700"
+                        onClick={() => toggleCategory(category)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                       >
-                        <Icon icon={X} className="h-5 w-5" />
+                        <div className="flex items-center gap-3">
+                          <Icon
+                            icon={isExpanded ? ChevronDown : ChevronRight}
+                            className="h-4 w-4 text-slate-400"
+                          />
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                            {category}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            ({categoryProducts.length} productos)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addProducts(categoryProducts);
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition"
+                        >
+                          Agregar todos
+                        </button>
                       </button>
+
+                      {isExpanded && (
+                        <div className="max-h-96 overflow-auto divide-y divide-slate-100 dark:divide-slate-800">
+                          {categoryProducts.map((product) => {
+                            const isSelected = items.some((item) => item.product_id === product.id);
+                            return (
+                              <label
+                                key={product.id}
+                                className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      addProducts([product]);
+                                    } else {
+                                      const index = items.findIndex((item) => item.product_id === product.id);
+                                      if (index >= 0) removeItem(index);
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                                />
+                                <Icon
+                                  icon={isSelected ? CheckSquare : Square}
+                                  className={`h-5 w-5 ${
+                                    isSelected
+                                      ? "text-emerald-600"
+                                      : "text-slate-400"
+                                  }`}
+                                />
+                                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                                  {product.image_path ? (
+                                    <img
+                                      src={product.image_path}
+                                      alt={product.name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full items-center justify-center text-slate-400">
+                                      <Icon icon={ImageIcon} className="h-5 w-5" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-slate-900 dark:text-slate-50 truncate">
+                                    {product.name}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                                    <span className={product.stock > 0 ? "text-emerald-600" : "text-red-600"}>
+                                      {product.stock > 0 ? `${product.stock} disp.` : "Sin stock"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                                    {formatMoney(product.price)}
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Productos seleccionados */}
+            {items.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Productos en el pool ({items.length}):
+                </h3>
+                <div className="space-y-2">
+                  {items.map((item, index) => {
+                    const product = allProducts.find((p) => p.id === item.product_id);
+                    return (
+                      <div
+                        key={`${item.product_id}-${index}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+                            {product?.name ?? "Producto"}
+                          </p>
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                            {product?.category ?? "Sin categoría"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Icon icon={X} className="h-5 w-5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
