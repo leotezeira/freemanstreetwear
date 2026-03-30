@@ -16,9 +16,11 @@ export async function getBundles(): Promise<BundleWithItems[]> {
           category,
           price,
           is_active,
-          stock
+          stock,
+          image_path
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -30,7 +32,7 @@ export async function getBundles(): Promise<BundleWithItems[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  
+
   // Firmar URLs de imágenes
   const bundlesWithSignedImages = await Promise.all(
     (data ?? []).map(async (bundle) => {
@@ -41,7 +43,7 @@ export async function getBundles(): Promise<BundleWithItems[]> {
       return bundle;
     })
   );
-  
+
   return bundlesWithSignedImages;
 }
 
@@ -59,9 +61,11 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
           category,
           price,
           is_active,
-          stock
+          stock,
+          image_path
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -74,7 +78,7 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  
+
   // Firmar URLs de imágenes
   const bundlesWithSignedImages = await Promise.all(
     (data ?? []).map(async (bundle) => {
@@ -85,7 +89,7 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
       return bundle;
     })
   );
-  
+
   return bundlesWithSignedImages;
 }
 
@@ -103,9 +107,11 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
           category,
           price,
           is_active,
-          stock
+          stock,
+          image_path
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -118,13 +124,13 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
     .single();
 
   if (error) return null;
-  
+
   // Firmar URL de imagen
   if (data.image_path) {
     const signedUrl = await createSignedBundleImageUrl(data.image_path).catch(() => null);
     data.image_path = signedUrl ?? data.image_path;
   }
-  
+
   return data;
 }
 
@@ -142,9 +148,11 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
           category,
           price,
           is_active,
-          stock
+          stock,
+          image_path
         ),
         product_variants (
+          id,
           size,
           color,
           sku,
@@ -158,22 +166,47 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
     .single();
 
   if (error) return null;
-  
+
   // Firmar URL de imagen
   if (data.image_path) {
     const signedUrl = await createSignedBundleImageUrl(data.image_path).catch(() => null);
     data.image_path = signedUrl ?? data.image_path;
   }
-  
-  return data;
+
+  // Cargar todas las variantes de cada producto (no solo la asignada al bundle item)
+  const bundleItemsWithAllVariants = await Promise.all(
+    (data.bundle_items ?? []).map(async (item) => {
+      if (item.product_id) {
+        const { data: allVariants } = await supabase
+          .from("product_variants")
+          .select("id, size, color, sku, stock, price")
+          .eq("product_id", item.product_id)
+          .eq("is_active", true);
+        
+        // Adjuntar todas las variantes al item
+        return {
+          ...item,
+          _all_variants: allVariants ?? [],
+        };
+      }
+      return item;
+    })
+  );
+
+  return { ...data, bundle_items: bundleItemsWithAllVariants };
 }
 
 export async function createBundle(formData: BundleFormData): Promise<Bundle> {
   const supabase = getSupabaseAdminClient();
-  
-  // Validar que haya al menos un producto
+
+  // Validar que haya al menos un producto en el pool
   if (!formData.items || formData.items.length === 0) {
-    throw new Error("El bundle debe tener al menos un producto");
+    throw new Error("El bundle debe tener al menos un producto disponible");
+  }
+
+  // Validar required_quantity
+  if (!formData.required_quantity || formData.required_quantity < 1) {
+    throw new Error("El bundle debe tener una cantidad mínima de productos para elegir");
   }
 
   // Calcular compare_at_price si no se proporcionó
@@ -187,10 +220,9 @@ export async function createBundle(formData: BundleFormData): Promise<Bundle> {
       .in("id", productIds);
 
     if (products) {
-      compareAtPrice = formData.items.reduce((sum, item) => {
-        const product = products.find((p) => p.id === item.product_id);
-        return sum + (product?.price ?? 0) * item.quantity;
-      }, 0);
+      // Sumar el precio de los productos según required_quantity
+      const avgPrice = products.reduce((sum, p) => sum + p.price, 0) / products.length;
+      compareAtPrice = Math.round(avgPrice * formData.required_quantity);
     }
   }
 
@@ -216,18 +248,18 @@ export async function createBundle(formData: BundleFormData): Promise<Bundle> {
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
       image_path: formData.image_path ?? null,
+      required_quantity: formData.required_quantity,
     })
     .select()
     .single();
 
   if (bundleError) throw new Error(bundleError.message);
 
-  // Crear bundle_items
+  // Crear bundle_items (pool de productos disponibles)
   const itemsPayload = formData.items.map((item) => ({
     bundle_id: bundle.id,
     product_id: item.product_id,
     variant_id: item.variant_id ?? null,
-    quantity: item.quantity,
   }));
 
   const { error: itemsError } = await supabase
@@ -244,10 +276,15 @@ export async function updateBundle(
   formData: BundleFormData
 ): Promise<Bundle> {
   const supabase = getSupabaseAdminClient();
-  
-  // Validar que haya al menos un producto
+
+  // Validar que haya al menos un producto en el pool
   if (!formData.items || formData.items.length === 0) {
-    throw new Error("El bundle debe tener al menos un producto");
+    throw new Error("El bundle debe tener al menos un producto disponible");
+  }
+
+  // Validar required_quantity
+  if (!formData.required_quantity || formData.required_quantity < 1) {
+    throw new Error("El bundle debe tener una cantidad mínima de productos para elegir");
   }
 
   // Calcular compare_at_price si no se proporcionó
@@ -260,10 +297,8 @@ export async function updateBundle(
       .in("id", productIds);
 
     if (products) {
-      compareAtPrice = formData.items.reduce((sum, item) => {
-        const product = products.find((p) => p.id === item.product_id);
-        return sum + (product?.price ?? 0) * item.quantity;
-      }, 0);
+      const avgPrice = products.reduce((sum, p) => sum + p.price, 0) / products.length;
+      compareAtPrice = Math.round(avgPrice * formData.required_quantity);
     }
   }
 
@@ -289,6 +324,7 @@ export async function updateBundle(
       compare_at_price: compareAtPrice ?? null,
       is_active: formData.is_active,
       image_path: formData.image_path ?? null,
+      required_quantity: formData.required_quantity,
     })
     .eq("id", id)
     .select()
@@ -299,12 +335,11 @@ export async function updateBundle(
   // Eliminar items existentes
   await supabase.from("bundle_items").delete().eq("bundle_id", id);
 
-  // Crear nuevos items
+  // Crear nuevos items (pool de productos disponibles)
   const itemsPayload = formData.items.map((item) => ({
     bundle_id: id,
     product_id: item.product_id,
     variant_id: item.variant_id ?? null,
-    quantity: item.quantity,
   }));
 
   const { error: itemsError } = await supabase

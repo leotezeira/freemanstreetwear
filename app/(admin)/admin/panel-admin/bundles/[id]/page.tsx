@@ -26,8 +26,7 @@ type Product = {
 
 type BundleItem = {
   product_id: string;
-  variant_id: string | null;
-  quantity: number;
+  variant_id: string | null; // null = el cliente elige la variante
 };
 
 export default function AdminBundleFormPage({ params }: { params: Promise<{ id?: string }> }) {
@@ -51,6 +50,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     compare_at_price: "",
     is_active: true,
     image_path: "",
+    required_quantity: "3", // Cantidad de productos que el cliente debe elegir
   });
 
   const [items, setItems] = useState<BundleItem[]>([]);
@@ -83,12 +83,12 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         compare_at_price: bundle.compare_at_price ? String(bundle.compare_at_price) : "",
         is_active: bundle.is_active,
         image_path: bundle.image_path ?? "",
+        required_quantity: String(bundle.required_quantity ?? 3),
       });
       setItems(
         bundle.bundle_items.map((item) => ({
           product_id: item.product_id,
           variant_id: item.variant_id,
-          quantity: item.quantity,
         }))
       );
     } catch (e) {
@@ -170,7 +170,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       toast.push({
         variant: "error",
         title: "Producto ya agregado",
-        description: "Este producto ya está en el bundle",
+        description: "Este producto ya está en el pool del bundle",
       });
       return;
     }
@@ -179,8 +179,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       ...prev,
       {
         product_id: product.id,
-        variant_id: null,
-        quantity: 1,
+        variant_id: null, // El cliente elige la variante
       },
     ]);
     setSearchQuery("");
@@ -189,12 +188,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
 
   function removeItem(index: number) {
     setItems((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateItemQuantity(index: number, quantity: number) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantity: Math.max(1, quantity) } : item))
-    );
   }
 
   function updateItemVariant(index: number, variantId: string | null) {
@@ -219,7 +212,17 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       toast.push({
         variant: "error",
         title: "Productos requeridos",
-        description: "El bundle debe tener al menos un producto",
+        description: "El bundle debe tener al menos un producto en el pool",
+      });
+      return;
+    }
+
+    const reqQty = Number(formData.required_quantity);
+    if (!reqQty || reqQty < 1) {
+      toast.push({
+        variant: "error",
+        title: "Cantidad requerida",
+        description: "El bundle debe tener una cantidad mínima de productos para elegir",
       });
       return;
     }
@@ -234,6 +237,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         ...formData,
         price: Number(formData.price) || 0,
         compare_at_price: formData.compare_at_price ? Number(formData.compare_at_price) : undefined,
+        required_quantity: reqQty,
         items,
       };
 
@@ -264,10 +268,14 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     }
   }
 
-  const calculatedCompareAtPrice = items.reduce((sum, item) => {
-    const product = searchResults.find((p) => p.id === item.product_id);
-    return sum + (product?.price ?? 0) * item.quantity;
-  }, 0);
+  const calculatedCompareAtPrice = (() => {
+    if (items.length === 0) return 0;
+    const avgPrice = items.reduce((sum, item) => {
+      const product = searchResults.find((p) => p.id === item.product_id);
+      return sum + (product?.price ?? 0);
+    }, 0) / items.length;
+    return Math.round(avgPrice * Number(formData.required_quantity || 3));
+  })();
 
   return (
     <section className="space-y-6 max-w-4xl">
@@ -399,6 +407,27 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Cantidad de productos a elegir *
+                </label>
+                <input
+                  className="input-base"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={formData.required_quantity}
+                  onChange={(e) => setFormData((p) => ({ ...p, required_quantity: e.target.value }))}
+                  placeholder="3"
+                  required
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  El cliente deberá elegir esta cantidad de productos del pool
+                </p>
               </div>
             </div>
 
@@ -553,7 +582,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
               <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
                 <Icon icon={Package2} className="mx-auto h-8 w-8 text-slate-400" />
                 <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  No hay productos agregados
+                  No hay productos en el pool
                 </p>
                 <p className="text-xs text-slate-500">
                   Buscá y agregá productos usando el buscador de arriba
@@ -572,18 +601,9 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                         <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                           {product?.name ?? "Producto"}
                         </p>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="number"
-                            min={1}
-                            value={item.quantity}
-                            onChange={(e) =>
-                              updateItemQuantity(index, Number(e.target.value))
-                            }
-                            className="w-16 rounded border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
-                          />
-                          <span className="text-xs text-slate-500">unidades</span>
-                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {product?.category ?? "Sin categoría"} · El cliente elige talle/color
+                        </p>
                       </div>
 
                       <button

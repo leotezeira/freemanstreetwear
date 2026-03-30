@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { CheckCircle2, LoaderCircle, Package2 } from "lucide-react";
+import { CheckCircle2, LoaderCircle, Package2, Plus, X } from "lucide-react";
 
 type BundleProduct = {
   id: string;
@@ -14,6 +14,7 @@ type BundleProduct = {
   price: number;
   is_active: boolean;
   stock: number;
+  image_path: string | null;
 };
 
 type BundleVariant = {
@@ -28,9 +29,9 @@ type BundleItem = {
   id: string;
   product_id: string;
   variant_id: string | null;
-  quantity: number;
   products: BundleProduct | null;
   product_variants: BundleVariant | null;
+  _all_variants?: BundleVariant[];
 };
 
 type Bundle = {
@@ -41,7 +42,14 @@ type Bundle = {
   price: number;
   compare_at_price: number | null;
   image_path: string | null;
+  required_quantity: number;
   bundle_items: BundleItem[];
+};
+
+type SelectedProduct = {
+  itemId: string;
+  productId: string;
+  variantId: string | null;
 };
 
 export default function BundleDetailPage() {
@@ -52,6 +60,7 @@ export default function BundleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [bundle, setBundle] = useState<Bundle | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   const slug = params.slug as string;
@@ -79,19 +88,59 @@ export default function BundleDetailPage() {
     }
   }
 
+  function handleSelectProduct(itemId: string, productId: string) {
+    // Verificar si ya está seleccionado
+    const alreadySelected = selectedProducts.find((p) => p.itemId === itemId);
+    if (alreadySelected) {
+      // Deseleccionar
+      setSelectedProducts((prev) => prev.filter((p) => p.itemId !== itemId));
+      // Limpiar variante
+      const newVariants = { ...selectedVariants };
+      delete newVariants[itemId];
+      setSelectedVariants(newVariants);
+      return;
+    }
+
+    // Verificar si ya alcanzó el máximo
+    if (selectedProducts.length >= (bundle?.required_quantity ?? 0)) {
+      toast.push({
+        variant: "error",
+        title: "Máximo alcanzado",
+        description: `Ya seleccionaste ${bundle?.required_quantity} productos`,
+      });
+      return;
+    }
+
+    // Agregar selección
+    setSelectedProducts((prev) => [
+      ...prev,
+      { itemId, productId, variantId: null },
+    ]);
+  }
+
   function handleVariantChange(itemId: string, variantId: string) {
     setSelectedVariants((prev) => ({
       ...prev,
-      [itemId]: variantId === "any" ? "" : variantId,
+      [itemId]: variantId === "" ? "" : variantId,
     }));
   }
 
   async function handleAddToCart() {
     if (!bundle) return;
 
-    // Verificar que todas las variantes requeridas estén seleccionadas
-    const itemsWithoutVariant = bundle.bundle_items.filter(
-      (item) => item.variant_id === null && !selectedVariants[item.id]
+    // Verificar cantidad seleccionada
+    if (selectedProducts.length !== bundle.required_quantity) {
+      toast.push({
+        variant: "error",
+        title: "Seleccioná más productos",
+        description: `Debés elegir exactamente ${bundle.required_quantity} productos`,
+      });
+      return;
+    }
+
+    // Verificar variantes seleccionadas
+    const itemsWithoutVariant = selectedProducts.filter(
+      (p) => !p.variantId && !selectedVariants[p.itemId]
     );
 
     if (itemsWithoutVariant.length > 0) {
@@ -105,28 +154,26 @@ export default function BundleDetailPage() {
 
     setAdding(true);
     try {
-      // Calcular precio total de los items para prorratear
-      const totalItemsPrice = bundle.bundle_items.reduce((sum, item) => {
-        const itemPrice = item.product_variants?.price ?? item.products?.price ?? 0;
-        return sum + itemPrice * item.quantity;
-      }, 0);
+      // Calcular precio prorrateado
+      const pricePerProduct = bundle.price / bundle.required_quantity;
 
-      // Agregar cada producto del bundle al carrito
-      for (const item of bundle.bundle_items) {
-        const itemPrice = item.product_variants?.price ?? item.products?.price ?? 0;
-        const proratedPrice = bundle.price * (itemPrice / totalItemsPrice);
+      // Agregar cada producto seleccionado al carrito
+      for (const selected of selectedProducts) {
+        const bundleItem = bundle.bundle_items.find((item) => item.id === selected.itemId);
+        const product = bundleItem?.products;
+        const variant = bundleItem?.product_variants;
 
-        const variantId = selectedVariants[item.id] || item.variant_id || undefined;
+        const variantId = selected.variantId || selectedVariants[selected.itemId] || undefined;
 
         addToCart({
-          productId: item.product_id,
+          productId: selected.productId,
           variantId,
-          name: `${item.products?.name ?? "Producto"} (Bundle: ${bundle.name})`,
-          unitPrice: proratedPrice,
-          quantity: item.quantity,
-          imageUrl: null,
-          stock: item.products?.stock ?? 0,
-          isActive: item.products?.is_active ?? false,
+          name: `${product?.name ?? "Producto"} (Bundle: ${bundle.name})`,
+          unitPrice: pricePerProduct,
+          quantity: 1,
+          imageUrl: product?.image_path,
+          stock: product?.stock ?? 0,
+          isActive: product?.is_active ?? false,
         });
       }
 
@@ -175,9 +222,11 @@ export default function BundleDetailPage() {
     ? bundle.compare_at_price - bundle.price
     : 0;
 
+  const remainingSelections = bundle.required_quantity - selectedProducts.length;
+
   return (
     <main className="app-container py-10">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-5xl">
         <button
           type="button"
           onClick={() => router.back()}
@@ -235,62 +284,72 @@ export default function BundleDetailPage() {
               )}
             </div>
 
-            {/* Productos incluidos */}
-            <div className="space-y-3">
-              <h2 className="text-base font-bold">Productos incluidos:</h2>
-              {bundle.bundle_items.map((item) => {
-                const product = item.products;
-                const variant = item.product_variants;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800"
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-900">
-                      <Icon icon={Package2} className="h-6 w-6 text-slate-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                        {product?.name ?? "Producto"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Cantidad: {item.quantity}
-                      </p>
-                      {variant && (
-                        <p className="text-xs text-slate-500">
-                          Talle: {variant.size} · Color: {variant.color}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Instrucciones de selección */}
+            <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/30">
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                Elegí {bundle.required_quantity} productos
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                {remainingSelections > 0
+                  ? `Te faltan ${remainingSelections} productos para completar el bundle`
+                  : "¡Completaste la selección!"}
+              </p>
             </div>
 
-            {/* Selectores de variante */}
-            {bundle.bundle_items.some((item) => item.variant_id === null) && (
-              <div className="space-y-3">
-                <h2 className="text-base font-bold">Seleccioná variantes:</h2>
-                {bundle.bundle_items
-                  .filter((item) => item.variant_id === null)
-                  .map((item) => (
-                    <div key={item.id} className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                        {item.products?.name}
-                      </label>
-                      <select
-                        className="input-base"
-                        value={selectedVariants[item.id] ?? ""}
-                        onChange={(e) => handleVariantChange(item.id, e.target.value)}
-                        required
+            {/* Productos seleccionados */}
+            {selectedProducts.length > 0 && (
+              <div className="space-y-2">
+                <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  Productos seleccionados ({selectedProducts.length}/{bundle.required_quantity}):
+                </h2>
+                {selectedProducts.map((selected) => {
+                  const bundleItem = bundle.bundle_items.find(
+                    (item) => item.id === selected.itemId
+                  );
+                  const product = bundleItem?.products;
+                  const variantId = selected.variantId || selectedVariants[selected.itemId];
+                  const variant = bundleItem?.product_variants?.id === variantId
+                    ? bundleItem.product_variants
+                    : null;
+
+                  return (
+                    <div
+                      key={selected.itemId}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+                          {product?.name ?? "Producto"}
+                        </p>
+                        {variant ? (
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                            Talle: {variant.size} · Color: {variant.color}
+                          </p>
+                        ) : (
+                          <select
+                            className="mt-1 text-xs rounded border border-emerald-300 bg-white px-2 py-1 dark:border-emerald-800 dark:bg-slate-900"
+                            value={selectedVariants[selected.itemId] ?? ""}
+                            onChange={(e) => handleVariantChange(selected.itemId, e.target.value)}
+                          >
+                            <option value="">Elegí talle y color...</option>
+                            {bundleItem._all_variants?.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.size} · {v.color} {v.stock <= 0 ? "(Sin stock)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectProduct(selected.itemId, selected.productId)}
+                        className="text-red-600 hover:text-red-700"
                       >
-                        <option value="">Elegí una opción...</option>
-                        {/* Aquí irían las variantes disponibles del producto */}
-                        <option value="any">Cualquiera (lo elegimos nosotros)</option>
-                      </select>
+                        <Icon icon={X} className="h-4 w-4" />
+                      </button>
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             )}
 
@@ -298,8 +357,8 @@ export default function BundleDetailPage() {
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={adding}
-              className="btn-primary w-full"
+              disabled={adding || selectedProducts.length !== bundle.required_quantity}
+              className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {adding ? (
                 <span className="flex items-center justify-center gap-2">
@@ -307,9 +366,75 @@ export default function BundleDetailPage() {
                   Agregando...
                 </span>
               ) : (
-                "Agregar Bundle al Carrito"
+                `Agregar Bundle al Carrito - ${formatMoney(bundle.price)}`
               )}
             </button>
+          </div>
+        </div>
+
+        {/* Pool de productos disponibles */}
+        <div className="mt-10">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4">
+            Productos disponibles para elegir:
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {bundle.bundle_items.map((item) => {
+              const product = item.products;
+              const isSelected = selectedProducts.some((p) => p.itemId === item.id);
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectProduct(item.id, item.product_id)}
+                  disabled={isSelected}
+                  className={`group text-left card-base space-y-3 transition hover:shadow-lg ${
+                    isSelected
+                      ? "opacity-50 cursor-default"
+                      : remainingSelections <= 0
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
+                    {product?.image_path ? (
+                      <img
+                        src={product.image_path}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-slate-400">
+                        <Icon icon={Package2} className="h-12 w-12" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-50 group-hover:underline">
+                      {product?.name ?? "Producto"}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {product?.category ?? "Sin categoría"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                      {formatMoney(product?.price ?? 0)}
+                    </span>
+                    {isSelected ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                        <Icon icon={CheckCircle2} className="h-4 w-4" />
+                        Seleccionado
+                      </span>
+                    ) : (
+                      <Icon icon={Plus} className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
