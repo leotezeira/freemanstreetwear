@@ -44,10 +44,10 @@ export async function PUT(
       compare_at_price: body.compare_at_price !== undefined ? Number(body.compare_at_price) : undefined,
       is_active: Boolean(body.is_active ?? true),
       image_path: body.image_path ?? null,
+      required_quantity: Number(body.required_quantity ?? 3),
       items: Array.isArray(body.items) ? body.items.map((item: any) => ({
         product_id: String(item.product_id),
         variant_id: item.variant_id ?? null,
-        quantity: Number(item.quantity ?? 1),
       })) : [],
     };
 
