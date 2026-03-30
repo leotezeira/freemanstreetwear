@@ -42,9 +42,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [searching, setSearching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -63,7 +60,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEditMode = searchParams.has("edit");
 
