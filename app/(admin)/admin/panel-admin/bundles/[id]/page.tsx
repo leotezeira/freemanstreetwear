@@ -687,14 +687,14 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
               type="button"
               onClick={() => router.back()}
               className="btn-secondary"
-              disabled={isPending || saving}
+              disabled={saving}
             >
               Cancelar
             </button>
             <button
               type="submit"
               className="btn-primary"
-              disabled={isPending || saving}
+              disabled={saving}
             >
               {saving ? "Guardando..." : isEditMode ? "Actualizar" : "Crear Bundle"}
             </button>
