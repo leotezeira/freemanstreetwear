@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Search, Package2, Upload, Image as ImageIcon, ChevronDown, ChevronRight, CheckSquare, Square } from "lucide-react";
+import { X, Upload, Image as ImageIcon, ChevronDown, ChevronRight, CheckSquare, Square } from "lucide-react";
 import type { BundleWithItems } from "@/types/bundle";
 
 type Product = {
@@ -29,19 +29,12 @@ type BundleItem = {
   variant_id: string | null; // null = el cliente elige la variante
 };
 
-type CategoryGroup = {
-  category: string | null;
-  products: Product[];
-};
-
 export default function AdminBundleFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
-  const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -168,10 +161,37 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateItemVariant(index: number, variantId: string | null) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, variant_id: variantId } : item))
-    );
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/admin/bundles/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? "Error al subir");
+
+      setFormData((p) => ({ ...p, image_path: result.imageUrl }));
+      toast.push({
+        variant: "success",
+        title: "Imagen subida",
+        description: "La imagen fue subida exitosamente",
+      });
+    } catch (err) {
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo subir la imagen",
+      });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -363,7 +383,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                       type="file"
                       accept="image/*"
                       onChange={handleImageUpload}
-                      disabled={uploadingImage}
                       className="hidden"
                     />
                     <input
@@ -372,14 +391,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                       value={formData.image_path}
                       onChange={(e) => setFormData((p) => ({ ...p, image_path: e.target.value }))}
                       placeholder="O pegá una URL de imagen..."
-                      disabled={uploadingImage}
                     />
-                    {uploadingImage && (
-                      <p className="text-xs text-slate-500 flex items-center gap-1">
-                        <Icon icon={Package2} className="h-3 w-3 animate-spin" />
-                        Subiendo imagen...
-                      </p>
-                    )}
                     <p className="text-xs text-slate-500">
                       Formatos: JPG, PNG, WebP · Máx: 5MB
                     </p>
