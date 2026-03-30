@@ -1,5 +1,4 @@
 import { getActiveBundles } from "@/lib/services/bundles.service";
-import { createSignedProductImageUrl } from "@/lib/services/product-images.service";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";

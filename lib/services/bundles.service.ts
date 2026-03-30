@@ -1,9 +1,10 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Bundle, BundleWithItems, BundleFormData } from "@/types/bundle";
+import { createSignedBundleImageUrl } from "@/lib/services/bundle-images.service";
 
 export async function getBundles(): Promise<BundleWithItems[]> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -29,12 +30,24 @@ export async function getBundles(): Promise<BundleWithItems[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+  
+  // Firmar URLs de imágenes
+  const bundlesWithSignedImages = await Promise.all(
+    (data ?? []).map(async (bundle) => {
+      if (bundle.image_path) {
+        const signedUrl = await createSignedBundleImageUrl(bundle.image_path).catch(() => null);
+        return { ...bundle, image_path: signedUrl ?? bundle.image_path };
+      }
+      return bundle;
+    })
+  );
+  
+  return bundlesWithSignedImages;
 }
 
 export async function getActiveBundles(): Promise<BundleWithItems[]> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -61,12 +74,24 @@ export async function getActiveBundles(): Promise<BundleWithItems[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+  
+  // Firmar URLs de imágenes
+  const bundlesWithSignedImages = await Promise.all(
+    (data ?? []).map(async (bundle) => {
+      if (bundle.image_path) {
+        const signedUrl = await createSignedBundleImageUrl(bundle.image_path).catch(() => null);
+        return { ...bundle, image_path: signedUrl ?? bundle.image_path };
+      }
+      return bundle;
+    })
+  );
+  
+  return bundlesWithSignedImages;
 }
 
 export async function getBundleById(id: string): Promise<BundleWithItems | null> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -93,12 +118,19 @@ export async function getBundleById(id: string): Promise<BundleWithItems | null>
     .single();
 
   if (error) return null;
+  
+  // Firmar URL de imagen
+  if (data.image_path) {
+    const signedUrl = await createSignedBundleImageUrl(data.image_path).catch(() => null);
+    data.image_path = signedUrl ?? data.image_path;
+  }
+  
   return data;
 }
 
 export async function getBundleBySlug(slug: string): Promise<BundleWithItems | null> {
   const supabase = getSupabaseAdminClient();
-  
+
   const { data, error } = await supabase
     .from("bundles")
     .select(`
@@ -126,6 +158,13 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
     .single();
 
   if (error) return null;
+  
+  // Firmar URL de imagen
+  if (data.image_path) {
+    const signedUrl = await createSignedBundleImageUrl(data.image_path).catch(() => null);
+    data.image_path = signedUrl ?? data.image_path;
+  }
+  
   return data;
 }
 

@@ -1,9 +1,10 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-const BUNDLES_IMAGES_BUCKET = "bundle-images";
+const BUNDLES_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
 const MAX_IMAGE_BYTES = 5242880; // 5MB
 const MAX_IMAGE_WIDTH = 1600;
 const WEBP_QUALITY = 82;
+const SIGNED_URL_TTL_SECONDS = Number(process.env.BUNDLE_IMAGES_SIGNED_URL_TTL_SECONDS ?? "3600");
 
 export async function uploadBundleImage(file: FormData): Promise<string> {
   const supabase = getSupabaseAdminClient();
@@ -68,16 +69,16 @@ export async function deleteBundleImage(imagePath: string): Promise<void> {
 
 export async function createSignedBundleImageUrl(imagePath: string): Promise<string> {
   const supabase = getSupabaseAdminClient();
-  
+
   // Extraer el path del archivo de la URL
   const pathParts = imagePath.split("/");
   const fileName = pathParts[pathParts.length - 1];
-  
+
   if (!fileName) return imagePath;
 
   const { data, error } = await supabase.storage
     .from(BUNDLES_IMAGES_BUCKET)
-    .createSignedUrl(fileName, 3600); // 1 hora
+    .createSignedUrl(fileName, SIGNED_URL_TTL_SECONDS);
 
   if (error) {
     console.error("[createSignedBundleImageUrl] Error:", error);
