@@ -80,7 +80,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       setAllProducts(body.products ?? []);
       
       // Expandir primera categoría por defecto
-      const categories = Array.from(new Set((body.products ?? []).map((p: Product) => p.category ?? "Sin categoría")));
+      const categories = Array.from(new Set((body.products ?? []).map((p: Product) => p.category ?? "Sin categoría"))) as string[];
       if (categories.length > 0) {
         setExpandedCategories({ [categories[0]]: true });
       }
