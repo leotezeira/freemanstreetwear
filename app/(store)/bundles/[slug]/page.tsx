@@ -332,7 +332,7 @@ export default function BundleDetailPage() {
                             onChange={(e) => handleVariantChange(selected.itemId, e.target.value)}
                           >
                             <option value="">Elegí talle y color...</option>
-                            {bundleItem._all_variants?.map((v) => (
+                            {bundleItem?._all_variants?.map((v) => (
                               <option key={v.id} value={v.id}>
                                 {v.size} · {v.color} {v.stock <= 0 ? "(Sin stock)" : ""}
                               </option>
