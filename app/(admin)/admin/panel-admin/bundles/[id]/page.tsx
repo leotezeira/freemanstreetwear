@@ -165,11 +165,21 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const { id } = await params;
+    if (!id) {
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: "Bundle ID no disponible",
+      });
+      return;
+    }
+
     try {
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("files", file);
 
-      const res = await fetch("/api/admin/bundles/upload-image", {
+      const res = await fetch(`/api/admin/bundles/${id}/images`, {
         method: "POST",
         body: formData,
       });
@@ -177,7 +187,11 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       const result = await res.json();
       if (!res.ok) throw new Error(result.error ?? "Error al subir");
 
-      setFormData((p) => ({ ...p, image_path: result.imageUrl }));
+      const uploadedImages = result.images ?? [];
+      if (uploadedImages.length > 0) {
+        setFormData((p) => ({ ...p, image_path: uploadedImages[0].image_path }));
+      }
+      
       toast.push({
         variant: "success",
         title: "Imagen subida",
