@@ -1,16 +1,15 @@
 // =====================================================
-// ADMIN: /admin/panel-admin/bundles/new y /bundles/[id]
-// Formulario para crear/editar bundle
+// ADMIN: /admin/panel-admin/bundles/new
+// Formulario para crear bundle
 // =====================================================
 
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
 import { X, Upload, Image as ImageIcon, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
-import type { BundleWithItems } from "@/types/bundle";
 
 type Product = {
   id: string;
@@ -36,15 +35,12 @@ function getProductImageUrl(product: Product): string | null {
   return primary?.image_path ?? product.product_images[0]?.image_path ?? null;
 }
 
-export default function AdminBundleFormPage({ params }: { params: Promise<{ id?: string }> }) {
+export default function AdminBundleNewPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -61,18 +57,11 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showProductSelector, setShowProductSelector] = useState(false);
-
-  const bundleId = searchParams.has("edit") ? null : null;
-  const isEditMode = searchParams.has("edit");
-  const editId = isEditMode ? searchParams.get("edit") : null;
+  const [createdBundleId, setCreatedBundleId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isEditMode && editId) {
-      void loadBundle(editId);
-    }
     void loadAllProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, editId]);
+  }, []);
 
   async function loadAllProducts() {
     setLoadingProducts(true);
@@ -95,62 +84,24 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     }
   }
 
-  async function loadBundle(id: string) {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/bundles/${id}`);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Error al cargar");
-
-      const bundle: BundleWithItems = body.bundle;
-      setFormData({
-        name: bundle.name,
-        description: bundle.description ?? "",
-        slug: bundle.slug ?? "",
-        price: String(bundle.price),
-        compare_at_price: bundle.compare_at_price ? String(bundle.compare_at_price) : "",
-        is_active: bundle.is_active,
-        image_path: bundle.image_path ?? "",
-        required_quantity: String(bundle.required_quantity),
-      });
-      setItems(
-        bundle.bundle_items.map((item) => ({
-          product_id: item.product_id,
-          variant_id: item.variant_id ?? undefined,
-        }))
-      );
-    } catch (e) {
-      toast.push({
-        variant: "error",
-        title: "Error",
-        description: e instanceof Error ? e.message : "No se pudo cargar el bundle",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const { id } = await params;
-    if (!id && !editId) {
+    if (!createdBundleId) {
       toast.push({
         variant: "error",
-        title: "Error",
-        description: "Bundle ID no disponible",
+        title: "Primero guardá el bundle",
+        description: "Tenés que guardar el bundle antes de subir imágenes",
       });
       return;
     }
-
-    const bundleIdToUse = editId || id;
 
     try {
       const formDataImg = new FormData();
       formDataImg.append("files", file);
 
-      const res = await fetch(`/api/admin/bundles/${bundleIdToUse}/images`, {
+      const res = await fetch(`/api/admin/bundles/${createdBundleId}/images`, {
         method: "POST",
         body: formDataImg,
       });
@@ -232,13 +183,8 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         items,
       };
 
-      const url = editId
-        ? `/api/admin/bundles/${editId}`
-        : "/api/admin/bundles";
-      const method = editId ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
+      const res = await fetch("/api/admin/bundles", {
+        method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -246,14 +192,23 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Error al guardar");
 
+      const createdId = body.bundle?.id;
+      if (createdId) {
+        setCreatedBundleId(createdId);
+      }
+
       toast.push({
         variant: "success",
         title: "Guardado",
         description: "El bundle fue guardado exitosamente",
       });
 
-      router.push("/admin/panel-admin/bundles");
-      router.refresh();
+      if (createdId) {
+        router.push(`/admin/panel-admin/bundles/${createdId}`);
+      } else {
+        router.push("/admin/panel-admin/bundles");
+        router.refresh();
+      }
     } catch (err) {
       toast.push({
         variant: "error",
@@ -273,11 +228,9 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     <section className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">
-            {isEditMode ? "Editar Bundle" : "Nuevo Bundle"}
-          </h1>
+          <h1 className="text-2xl font-black tracking-tight">Nuevo Bundle</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            {isEditMode ? "Actualizá la información del bundle" : "Creá un nuevo bundle"}
+            Creá un nuevo bundle
           </p>
         </div>
         <button type="button" onClick={() => router.back()} className="btn-secondary">
@@ -285,225 +238,221 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         </button>
       </div>
 
-      {loading ? (
-        <div className="space-y-4">
-          <div className="h-32 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-900" />
-          <div className="h-32 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-900" />
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Información básica */}
-          <div className="card-base space-y-4">
-            <h2 className="text-lg font-bold">Información Básica</h2>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Información básica */}
+        <div className="card-base space-y-4">
+          <h2 className="text-lg font-bold">Información Básica</h2>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium">Nombre *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                  className="input"
-                  placeholder="Ej: Bundle Verano"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Slug</label>
-                <input
-                  type="text"
-                  value={formData.slug}
-                  onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
-                  className="input"
-                  placeholder="bundle-verano"
-                />
-              </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium">Nombre *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                className="input"
+                placeholder="Ej: Bundle Verano"
+                required
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium">Descripción</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-                className="input min-h-[80px]"
-                placeholder="Descripción del bundle..."
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="block text-sm font-medium">Precio *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => setFormData((p) => ({ ...p, price: e.target.value }))}
-                  className="input"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Precio anterior</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.compare_at_price}
-                  onChange={(e) => setFormData((p) => ({ ...p, compare_at_price: e.target.value }))}
-                  className="input"
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Cantidad a elegir *</label>
-                <input
-                  type="number"
-                  value={formData.required_quantity}
-                  onChange={(e) => setFormData((p) => ({ ...p, required_quantity: e.target.value }))}
-                  className="input"
-                  placeholder="3"
-                  min="1"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
+              <label className="block text-sm font-medium">Slug</label>
               <input
-                type="checkbox"
-                id="is_active"
-                checked={formData.is_active}
-                onChange={(e) => setFormData((p) => ({ ...p, is_active: e.target.checked }))}
-                className="h-4 w-4 rounded border-slate-300"
+                type="text"
+                value={formData.slug}
+                onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
+                className="input"
+                placeholder="bundle-verano"
               />
-              <label htmlFor="is_active" className="text-sm font-medium">
-                Bundle activo (visible en la tienda)
-              </label>
             </div>
           </div>
 
-          {/* Imagen del bundle */}
-          <div className="card-base space-y-4">
-            <h2 className="text-lg font-bold">Imagen del Bundle</h2>
+          <div>
+            <label className="block text-sm font-medium">Descripción</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+              className="input min-h-[80px]"
+              placeholder="Descripción del bundle..."
+            />
+          </div>
 
-            <div className="flex items-center gap-4">
-              <div className="aspect-square h-32 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
-                {formData.image_path ? (
-                  <img src={formData.image_path} alt="Bundle" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-slate-400">
-                    <Icon icon={ImageIcon} className="h-8 w-8" />
-                  </div>
-                )}
-              </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="block text-sm font-medium">Precio *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.price}
+                onChange={(e) => setFormData((p) => ({ ...p, price: e.target.value }))}
+                className="input"
+                placeholder="0.00"
+                required
+              />
+            </div>
 
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn-secondary flex items-center gap-2"
-                >
-                  <Icon icon={Upload} className="h-4 w-4" />
-                  Subir imagen
-                </button>
-                <p className="mt-1 text-xs text-slate-500">
-                  JPG, PNG o WEBP. Máximo 4MB.
-                </p>
-              </div>
+            <div>
+              <label className="block text-sm font-medium">Precio anterior</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.compare_at_price}
+                onChange={(e) => setFormData((p) => ({ ...p, compare_at_price: e.target.value }))}
+                className="input"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">Cantidad a elegir *</label>
+              <input
+                type="number"
+                value={formData.required_quantity}
+                onChange={(e) => setFormData((p) => ({ ...p, required_quantity: e.target.value }))}
+                className="input"
+                placeholder="3"
+                min="1"
+                required
+              />
             </div>
           </div>
 
-          {/* Productos */}
-          <div className="card-base space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Productos del Bundle</h2>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="is_active"
+              checked={formData.is_active}
+              onChange={(e) => setFormData((p) => ({ ...p, is_active: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            <label htmlFor="is_active" className="text-sm font-medium">
+              Bundle activo (visible en la tienda)
+            </label>
+          </div>
+        </div>
+
+        {/* Imagen del bundle */}
+        <div className="card-base space-y-4">
+          <h2 className="text-lg font-bold">Imagen del Bundle</h2>
+
+          <div className="flex items-center gap-4">
+            <div className="aspect-square h-32 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
+              {formData.image_path ? (
+                <img src={formData.image_path} alt="Bundle" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-slate-400">
+                  <Icon icon={ImageIcon} className="h-8 w-8" />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
               <button
                 type="button"
-                onClick={() => setShowProductSelector(true)}
-                className="btn-primary flex items-center gap-2 text-sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!createdBundleId}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Icon icon={Plus} className="h-4 w-4" />
-                Agregar Producto
+                <Icon icon={Upload} className="h-4 w-4" />
+                {createdBundleId ? "Subir imagen" : "Guardá primero"}
               </button>
+              <p className="mt-1 text-xs text-slate-500">
+                {createdBundleId
+                  ? "JPG, PNG o WEBP. Máximo 4MB."
+                  : "Tenés que guardar el bundle antes de subir imágenes"}
+              </p>
             </div>
-
-            {items.length === 0 ? (
-              <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
-                <Icon icon={ImageIcon} className="mx-auto h-8 w-8 text-slate-400" />
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  No hay productos agregados
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {items.map((item, index) => {
-                  const product = allProducts.find((p) => p.id === item.product_id);
-                  const productImageUrl = product ? getProductImageUrl(product) : null;
-                  return (
-                    <div
-                      key={`${item.product_id}-${index}`}
-                      className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800"
-                    >
-                      <div className="h-12 w-12 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
-                        {productImageUrl ? (
-                          <img
-                            src={productImageUrl}
-                            alt={product?.name ?? 'Producto'}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-slate-400">
-                            <Icon icon={ImageIcon} className="h-6 w-6" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-slate-900 dark:text-slate-50">
-                          {product?.name ?? "Producto eliminado"}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {product ? `$${product.price}` : "No disponible"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        className="rounded p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                      >
-                        <Icon icon={Trash2} className="h-4 w-4" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
+        </div>
 
-          {/* Submit */}
-          <div className="flex items-center justify-end gap-3">
-            <button type="button" onClick={() => router.back()} className="btn-secondary">
-              Cancelar
-            </button>
+        {/* Productos */}
+        <div className="card-base space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">Productos del Bundle</h2>
             <button
-              type="submit"
-              disabled={saving}
-              className="btn-primary disabled:opacity-50"
+              type="button"
+              onClick={() => setShowProductSelector(true)}
+              className="btn-primary flex items-center gap-2 text-sm"
             >
-              {saving ? "Guardando..." : isEditMode ? "Actualizar Bundle" : "Crear Bundle"}
+              <Icon icon={Plus} className="h-4 w-4" />
+              Agregar Producto
             </button>
           </div>
-        </form>
-      )}
+
+          {items.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
+              <Icon icon={ImageIcon} className="mx-auto h-8 w-8 text-slate-400" />
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                No hay productos agregados
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {items.map((item, index) => {
+                const product = allProducts.find((p) => p.id === item.product_id);
+                const productImageUrl = product ? getProductImageUrl(product) : null;
+                return (
+                  <div
+                    key={`${item.product_id}-${index}`}
+                    className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+                  >
+                    <div className="h-12 w-12 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
+                      {productImageUrl ? (
+                        <img
+                          src={productImageUrl}
+                          alt={product?.name ?? "Producto"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-slate-400">
+                          <Icon icon={ImageIcon} className="h-6 w-6" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-900 dark:text-slate-50">
+                        {product?.name ?? "Producto eliminado"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {product ? `$${product.price}` : "No disponible"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="rounded p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+                    >
+                      <Icon icon={Trash2} className="h-4 w-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Submit */}
+        <div className="flex items-center justify-end gap-3">
+          <button type="button" onClick={() => router.back()} className="btn-secondary">
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="btn-primary disabled:opacity-50"
+          >
+            {saving ? "Creando Bundle..." : "Crear Bundle"}
+          </button>
+        </div>
+      </form>
 
       {/* Modal selector de productos */}
       {showProductSelector && (
@@ -565,26 +514,22 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                                       : "border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
                                   } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                                 >
-                                  {(() => {
-                                    const imgUrl = getProductImageUrl(product);
-                                    return (
-                                      <>
-                                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
-                                          {imgUrl ? (
-                                            <img
-                                              src={imgUrl}
-                                              alt={product.name}
-                                              className="h-full w-full object-cover"
-                                            />
-                                          ) : (
-                                            <div className="flex h-full items-center justify-center text-slate-400">
-                                              <Icon icon={ImageIcon} className="h-6 w-6" />
-                                            </div>
-                                          )}
+                                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
+                                    {(() => {
+                                      const imgUrl = getProductImageUrl(product);
+                                      return imgUrl ? (
+                                        <img
+                                          src={imgUrl}
+                                          alt={product.name}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="flex h-full items-center justify-center text-slate-400">
+                                          <Icon icon={ImageIcon} className="h-6 w-6" />
                                         </div>
-                                      </>
-                                    );
-                                  })()}
+                                      );
+                                    })()}
+                                  </div>
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-medium">
                                       {product.name}
