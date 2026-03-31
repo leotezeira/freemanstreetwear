@@ -181,7 +181,7 @@ export default function BundleDetailPage() {
           name: `${product?.name ?? "Producto"} (Bundle: ${bundle.name})`,
           unitPrice: pricePerProduct,
           quantity: 1,
-          imageUrl: getProductImageUrl(product),
+          imageUrl: getProductImageUrl(product ?? null),
           stock: product?.stock ?? 0,
           isActive: product?.is_active ?? false,
         });
