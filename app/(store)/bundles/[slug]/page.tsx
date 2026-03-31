@@ -407,17 +407,20 @@ export default function BundleDetailPage() {
                   }`}
                 >
                   <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
-                    {getProductImageUrl(product) ? (
-                      <img
-                        src={getProductImageUrl(product)}
-                        alt={product.name}
-                        className="h-full w-full object-cover transition group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-slate-400">
-                        <Icon icon={Package2} className="h-12 w-12" />
-                      </div>
-                    )}
+                    {(() => {
+                      const imgUrl = getProductImageUrl(product);
+                      return imgUrl ? (
+                        <img
+                          src={imgUrl}
+                          alt={product.name}
+                          className="h-full w-full object-cover transition group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-slate-400">
+                          <Icon icon={Package2} className="h-12 w-12" />
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div>
