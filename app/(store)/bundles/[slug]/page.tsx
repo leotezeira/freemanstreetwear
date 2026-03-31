@@ -412,7 +412,7 @@ export default function BundleDetailPage() {
                       return imgUrl ? (
                         <img
                           src={imgUrl}
-                          alt={product.name}
+                          alt={product?.name ?? 'Producto'}
                           className="h-full w-full object-cover transition group-hover:scale-105"
                         />
                       ) : (
