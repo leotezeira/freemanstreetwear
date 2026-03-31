@@ -196,7 +196,7 @@ export default function AdminBundlesPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => router.push(`/admin/panel-admin/bundles/${bundle.id}?edit=1`)}
+                    onClick={() => router.push(`/admin/panel-admin/bundles/${bundle.id}`)}
                     className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Editar"
                   >

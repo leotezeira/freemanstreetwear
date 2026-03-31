@@ -8,12 +8,12 @@ export async function GET(request: Request) {
     const all = searchParams.get("all") === "true";
 
     // Si no es ?all=true, retornar solo productos activos (para búsqueda)
-    const query = supabase
+    let query = supabase
       .from("products")
-      .select("id, name, category, price, compare_at_price, stock, is_active, image_path");
+      .select("id, name, category, price, compare_at_price, stock, is_active, product_images (image_path, is_primary)");
 
     if (!all) {
-      query.eq("is_active", true);
+      query = query.eq("is_active", true);
     }
 
     const { data, error } = await query.order("category", { ascending: true }).order("name", { ascending: true });
