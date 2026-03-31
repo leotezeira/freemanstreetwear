@@ -14,7 +14,10 @@ type BundleProduct = {
   price: number;
   is_active: boolean;
   stock: number;
-  image_path: string | null;
+  product_images?: Array<{
+    image_path: string | null;
+    is_primary: boolean;
+  }>;
 };
 
 type BundleVariant = {
@@ -64,6 +67,13 @@ export default function BundleDetailPage() {
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   const slug = params.slug as string;
+
+  // Helper para obtener imagen principal del producto
+  function getProductImageUrl(product: BundleProduct | null): string | null {
+    if (!product?.product_images?.length) return null;
+    const primary = product.product_images.find(img => img.is_primary);
+    return primary?.image_path ?? product.product_images[0]?.image_path ?? null;
+  }
 
   useEffect(() => {
     void loadBundle();
@@ -171,7 +181,7 @@ export default function BundleDetailPage() {
           name: `${product?.name ?? "Producto"} (Bundle: ${bundle.name})`,
           unitPrice: pricePerProduct,
           quantity: 1,
-          imageUrl: product?.image_path,
+          imageUrl: getProductImageUrl(product),
           stock: product?.stock ?? 0,
           isActive: product?.is_active ?? false,
         });
@@ -397,9 +407,9 @@ export default function BundleDetailPage() {
                   }`}
                 >
                   <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
-                    {product?.image_path ? (
+                    {getProductImageUrl(product) ? (
                       <img
-                        src={product.image_path}
+                        src={getProductImageUrl(product)}
                         alt={product.name}
                         className="h-full w-full object-cover transition group-hover:scale-105"
                       />

@@ -27,7 +27,10 @@ export type BundleWithItems = Bundle & {
       price: number;
       is_active: boolean;
       stock: number;
-      image_path: string | null;
+      product_images?: Array<{
+        image_path: string | null;
+        is_primary: boolean;
+      }>;
     } | null;
     product_variants: {
       id: string;
