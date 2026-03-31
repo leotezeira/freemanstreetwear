@@ -42,6 +42,7 @@ export default function AdminBundleEditPage() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [bundleId, setBundleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -63,7 +64,16 @@ export default function AdminBundleEditPage() {
   const [showProductSelector, setShowProductSelector] = useState(false);
 
   useEffect(() => {
-    void loadBundle();
+    // Resolver params y obtener ID
+    const resolveParams = async () => {
+      const { id } = await params;
+      if (id && id !== "new") {
+        setBundleId(id);
+        await loadBundle(id);
+      }
+    };
+    
+    resolveParams();
     void loadAllProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -89,10 +99,7 @@ export default function AdminBundleEditPage() {
     }
   }
 
-  async function loadBundle() {
-    const { id } = await params;
-    if (!id || id === "new") return;
-
+  async function loadBundle(id: string) {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/bundles/${id}`);
@@ -131,8 +138,7 @@ export default function AdminBundleEditPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const { id } = await params;
-    if (!id || id === "new") {
+    if (!bundleId) {
       toast.push({
         variant: "error",
         title: "Error",
@@ -145,7 +151,7 @@ export default function AdminBundleEditPage() {
       const formDataImg = new FormData();
       formDataImg.append("files", file);
 
-      const res = await fetch(`/api/admin/bundles/${id}/images`, {
+      const res = await fetch(`/api/admin/bundles/${bundleId}/images`, {
         method: "POST",
         body: formDataImg,
       });
@@ -219,8 +225,7 @@ export default function AdminBundleEditPage() {
 
     setSaving(true);
     try {
-      const { id } = await params;
-      if (!id || id === "new") {
+      if (!bundleId) {
         throw new Error("Bundle ID no disponible");
       }
 
@@ -232,7 +237,7 @@ export default function AdminBundleEditPage() {
         items,
       };
 
-      const res = await fetch(`/api/admin/bundles/${id}`, {
+      const res = await fetch(`/api/admin/bundles/${bundleId}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
