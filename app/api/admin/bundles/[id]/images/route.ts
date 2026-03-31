@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
 
-const PRODUCT_IMAGES_BUCKET = process.env.PRODUCT_IMAGES_BUCKET ?? "product-images";
+const BUNDLE_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
 const MAX_BUNDLE_IMAGE_BYTES = Number(process.env.MAX_BUNDLE_IMAGE_BYTES ?? String(4 * 1024 * 1024));
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGE_WIDTH = Number(process.env.MAX_BUNDLE_IMAGE_WIDTH ?? "1600");
@@ -85,7 +85,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         .toBuffer();
 
       const { error: uploadError } = await supabase.storage
-        .from(PRODUCT_IMAGES_BUCKET)
+        .from(BUNDLE_IMAGES_BUCKET)
         .upload(path, webpBuffer, {
           contentType: "image/webp",
           upsert: false,
@@ -197,7 +197,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
     // Delete from storage
     if (imageData?.image_path) {
-      await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove([imageData.image_path]);
+      await supabase.storage.from(BUNDLE_IMAGES_BUCKET).remove([imageData.image_path]);
     }
 
     // Delete from database
