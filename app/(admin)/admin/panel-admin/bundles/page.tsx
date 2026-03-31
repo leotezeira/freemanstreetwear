@@ -1,3 +1,8 @@
+// =====================================================
+// ADMIN: /admin/panel-admin/bundles
+// Lista todos los bundles (activos e inactivos)
+// =====================================================
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -71,7 +76,7 @@ export default function AdminBundlesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Estás seguro de eliminar este bundle? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Estás seguro de eliminar este bundle?")) return;
 
     try {
       const res = await fetch(`/api/admin/bundles/${id}`, { method: "DELETE" });
@@ -98,76 +103,64 @@ export default function AdminBundlesPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black tracking-tight">Bundles</h1>
-          <p className="text-slate-600 dark:text-slate-300">
-            Creá combos de productos con precios especiales.
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Gestioná los packs de productos
           </p>
         </div>
         <button
-          className="btn-primary"
           type="button"
           onClick={() => router.push("/admin/panel-admin/bundles/new")}
+          className="btn-primary flex items-center gap-2"
         >
-          <span className="flex items-center gap-2">
-            <Icon icon={Plus} />
-            <span>Crear Bundle</span>
-          </span>
+          <Icon icon={Plus} className="h-4 w-4" />
+          Nuevo Bundle
         </button>
       </div>
 
       {loading ? (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="card-base h-48 animate-pulse" />
           ))}
         </div>
       ) : bundles.length === 0 ? (
-        <div className="card-base text-center py-12">
+        <div className="card-base p-8 text-center">
           <Icon icon={Package2} className="mx-auto h-12 w-12 text-slate-400" />
-          <p className="mt-4 text-sm font-semibold text-slate-900 dark:text-slate-50">
-            No hay bundles creados
+          <h3 className="mt-4 text-lg font-bold">No hay bundles</h3>
+          <p className="text-slate-600 dark:text-slate-400">
+            Creá tu primer bundle para comenzar
           </p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Creá tu primer bundle para ofrecer combos con descuento
-          </p>
-          <button
-            className="btn-primary mt-4"
-            type="button"
-            onClick={() => router.push("/admin/panel-admin/bundles/new")}
-          >
-            Crear Bundle
-          </button>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {bundles.map((bundle) => (
-            <div
-              key={bundle.id}
-              className={`card-base space-y-3 ${!bundle.is_active ? "opacity-60" : ""}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-slate-900 dark:text-slate-50 truncate">
-                    {bundle.name}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    {bundle.description ?? "Sin descripción"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle(bundle.id)}
-                  className="shrink-0"
-                  title={bundle.is_active ? "Desactivar" : "Activar"}
-                >
-                  <Icon
-                    icon={bundle.is_active ? ToggleRight : ToggleLeft}
-                    className={`h-6 w-6 ${
+            <div key={bundle.id} className="card-base space-y-3">
+              <div className="aspect-video overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
+                {bundle.image_path ? (
+                  <img src={bundle.image_path} alt={bundle.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-slate-400">
+                    <Icon icon={Package2} className="h-8 w-8" />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-50">{bundle.name}</h3>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       bundle.is_active
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-slate-400"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                     }`}
-                  />
-                </button>
+                  >
+                    {bundle.is_active ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+                  {bundle.description ?? "Sin descripción"}
+                </p>
               </div>
 
               <div className="flex items-baseline gap-2">
@@ -181,31 +174,43 @@ export default function AdminBundlesPage() {
                 )}
               </div>
 
-              {bundle.compare_at_price && bundle.compare_at_price > bundle.price && (
-                <div className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-                  Ahorrás {formatMoney(bundle.compare_at_price - bundle.price)}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                  {bundle.bundle_items.length} productos · {bundle.required_quantity} a elegir
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleToggle(bundle.id)}
+                    className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    title={bundle.is_active ? "Desactivar" : "Activar"}
+                  >
+                    <Icon
+                      icon={bundle.is_active ? ToggleRight : ToggleLeft}
+                      className={`h-5 w-5 ${
+                        bundle.is_active
+                          ? "text-emerald-600"
+                          : "text-slate-400"
+                      }`}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/admin/panel-admin/bundles/${bundle.id}?edit=1`)}
+                    className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    title="Editar"
+                  >
+                    <Icon icon={Pencil} className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(bundle.id)}
+                    className="rounded p-1 hover:bg-red-100 dark:hover:bg-red-900/30"
+                    title="Eliminar"
+                  >
+                    <Icon icon={Trash2} className="h-4 w-4 text-red-600" />
+                  </button>
                 </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => router.push(`/admin/panel-admin/bundles/${bundle.id}`)}
-                  className="btn-secondary flex-1 text-xs"
-                >
-                  <span className="flex items-center justify-center gap-1">
-                    <Icon icon={Pencil} className="h-3 w-3" />
-                    Editar
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(bundle.id)}
-                  className="btn-ghost text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  title="Eliminar"
-                >
-                  <Icon icon={Trash2} className="h-4 w-4" />
-                </button>
               </div>
             </div>
           ))}

@@ -1,32 +1,48 @@
+// =====================================================
+// ADMIN: /admin/panel-admin/bundles/new y /bundles/[id]
+// Formulario para crear/editar bundle
+// =====================================================
+
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Upload, Image as ImageIcon, Package2, ChevronRight, ChevronDown } from "lucide-react";
+import { X, Upload, Image as ImageIcon, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import type { BundleWithItems } from "@/types/bundle";
 
 type Product = {
   id: string;
   name: string;
   category: string | null;
   price: number;
-  compare_at_price?: number | null;
   stock: number;
   is_active: boolean;
-  image_path?: string | null;
+  product_images?: Array<{
+    image_path: string | null;
+    is_primary: boolean;
+  }>;
 };
 
 type BundleItem = {
   product_id: string;
-  quantity: number;
+  variant_id?: string | null;
 };
 
-type GroupedProducts = Record<string, Product[]>;
+function getProductImageUrl(product: Product): string | null {
+  if (!product?.product_images?.length) return null;
+  const primary = product.product_images.find(img => img.is_primary);
+  return primary?.image_path ?? product.product_images[0]?.image_path ?? null;
+}
 
-export default function AdminBundleNewPage() {
+export default function AdminBundleFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -36,38 +52,130 @@ export default function AdminBundleNewPage() {
     price: "",
     compare_at_price: "",
     is_active: true,
-    min_items: 1,
-    max_items: 1,
+    image_path: "",
+    required_quantity: "3",
   });
 
   const [items, setItems] = useState<BundleItem[]>([]);
-  const [groupedProducts, setGroupedProducts] = useState<GroupedProducts>({});
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [showProductModal, setShowProductModal] = useState(false);
+  const [showProductSelector, setShowProductSelector] = useState(false);
+
+  const bundleId = searchParams.has("edit") ? null : null;
+  const isEditMode = searchParams.has("edit");
+  const editId = isEditMode ? searchParams.get("edit") : null;
 
   useEffect(() => {
-    if (showProductModal) {
-      void loadAllProducts();
+    if (isEditMode && editId) {
+      void loadBundle(editId);
     }
+    void loadAllProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showProductModal]);
+  }, [isEditMode, editId]);
 
   async function loadAllProducts() {
     setLoadingProducts(true);
     try {
-      const res = await fetch("/api/admin/products?byCategory=true");
+      const res = await fetch("/api/admin/products/all");
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Error al cargar productos");
-      setGroupedProducts(body.grouped ?? {});
+      if (!res.ok) throw new Error(body.error ?? "Error al cargar");
+      setAllProducts(body.products ?? []);
+
+      const categories = Array.from(
+        new Set((body.products ?? []).map((p: Product) => p.category ?? "Sin categoría"))
+      ) as string[];
+      if (categories.length > 0) {
+        setExpandedCategories({ [categories[0]]: true });
+      }
+    } catch (e) {
+      console.error("[Load products]", e);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
+
+  async function loadBundle(id: string) {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/bundles/${id}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Error al cargar");
+
+      const bundle: BundleWithItems = body.bundle;
+      setFormData({
+        name: bundle.name,
+        description: bundle.description ?? "",
+        slug: bundle.slug ?? "",
+        price: String(bundle.price),
+        compare_at_price: bundle.compare_at_price ? String(bundle.compare_at_price) : "",
+        is_active: bundle.is_active,
+        image_path: bundle.image_path ?? "",
+        required_quantity: String(bundle.required_quantity),
+      });
+      setItems(
+        bundle.bundle_items.map((item) => ({
+          product_id: item.product_id,
+          variant_id: item.variant_id ?? undefined,
+        }))
+      );
     } catch (e) {
       toast.push({
         variant: "error",
         title: "Error",
-        description: e instanceof Error ? e.message : "No se pudieron cargar los productos",
+        description: e instanceof Error ? e.message : "No se pudo cargar el bundle",
       });
     } finally {
-      setLoadingProducts(false);
+      setLoading(false);
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const { id } = await params;
+    if (!id && !editId) {
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: "Bundle ID no disponible",
+      });
+      return;
+    }
+
+    const bundleIdToUse = editId || id;
+
+    try {
+      const formDataImg = new FormData();
+      formDataImg.append("files", file);
+
+      const res = await fetch(`/api/admin/bundles/${bundleIdToUse}/images`, {
+        method: "POST",
+        body: formDataImg,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? "Error al subir");
+
+      const uploadedImages = result.images ?? [];
+      if (uploadedImages.length > 0) {
+        setFormData((p) => ({ ...p, image_path: uploadedImages[0].image_path }));
+      }
+
+      toast.push({
+        variant: "success",
+        title: "Imagen subida",
+        description: "La imagen fue subida exitosamente",
+      });
+    } catch (err) {
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo subir la imagen",
+      });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -75,25 +183,18 @@ export default function AdminBundleNewPage() {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
   }
 
-  function addProduct(product: Product) {
-    const alreadyAdded = items.some((item) => item.product_id === product.id);
-    if (alreadyAdded) {
+  function handleAddProduct(product: Product) {
+    if (items.find((i) => i.product_id === product.id)) {
       toast.push({
         variant: "error",
-        title: "Producto ya agregado",
+        title: "Producto duplicado",
         description: "Este producto ya está en el bundle",
       });
       return;
     }
 
-    setItems((prev) => [
-      ...prev,
-      {
-        product_id: product.id,
-        quantity: 1,
-      },
-    ]);
-    setShowProductModal(false);
+    setItems((prev) => [...prev, { product_id: product.id }]);
+    setShowProductSelector(false);
   }
 
   function removeItem(index: number) {
@@ -121,36 +222,29 @@ export default function AdminBundleNewPage() {
       return;
     }
 
-    if (items.length < formData.min_items) {
-      toast.push({
-        variant: "error",
-        title: "Mínimo de productos",
-        description: `Debes agregar al menos ${formData.min_items} productos`,
-      });
-      return;
-    }
-
     setSaving(true);
     try {
-      const url = "/api/admin/bundles";
-
-      const body = {
+      const payload = {
         ...formData,
         price: Number(formData.price) || 0,
         compare_at_price: formData.compare_at_price ? Number(formData.compare_at_price) : undefined,
+        required_quantity: Number(formData.required_quantity) || 3,
         items,
       };
 
+      const url = editId
+        ? `/api/admin/bundles/${editId}`
+        : "/api/admin/bundles";
+      const method = editId ? "PUT" : "POST";
+
       const res = await fetch(url, {
-        method: "POST",
+        method,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? "Error al guardar");
-
-      const bundleId = result.bundle?.id;
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Error al guardar");
 
       toast.push({
         variant: "success",
@@ -158,469 +252,364 @@ export default function AdminBundleNewPage() {
         description: "El bundle fue guardado exitosamente",
       });
 
-      // Redirigir a la página de edición para subir imágenes
-      if (bundleId) {
-        router.push(`/admin/panel-admin/bundles/${bundleId}?edit=1`);
-      } else {
-        router.push("/admin/panel-admin/bundles");
-      }
-    } catch (e) {
+      router.push("/admin/panel-admin/bundles");
+      router.refresh();
+    } catch (err) {
       toast.push({
         variant: "error",
         title: "Error",
-        description: e instanceof Error ? e.message : "No se pudo guardar el bundle",
+        description: err instanceof Error ? err.message : "No se pudo guardar el bundle",
       });
     } finally {
       setSaving(false);
     }
   }
 
-  const calculatedCompareAtPrice = items.reduce((sum, item) => {
-    const product = Object.values(groupedProducts)
-      .flat()
-      .find((p) => p.id === item.product_id);
-    return sum + (product?.price ?? 0) * item.quantity;
-  }, 0);
-
-  function getProductById(id: string): Product | undefined {
-    return Object.values(groupedProducts)
-      .flat()
-      .find((p) => p.id === id);
-  }
+  const categories = Array.from(
+    new Set(allProducts.map((p) => p.category ?? "Sin categoría"))
+  ) as string[];
 
   return (
-    <section className="space-y-6 max-w-4xl">
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-        >
-          ← Volver
+    <section className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight">
+            {isEditMode ? "Editar Bundle" : "Nuevo Bundle"}
+          </h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {isEditMode ? "Actualizá la información del bundle" : "Creá un nuevo bundle"}
+          </p>
+        </div>
+        <button type="button" onClick={() => router.back()} className="btn-secondary">
+          Cancelar
         </button>
-        <h1 className="text-2xl font-black tracking-tight">Nuevo Bundle</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Información básica */}
-        <div className="card-base space-y-4">
-          <h2 className="text-base font-bold">Información del Bundle</h2>
+      {loading ? (
+        <div className="space-y-4">
+          <div className="h-32 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-900" />
+          <div className="h-32 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-900" />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Información básica */}
+          <div className="card-base space-y-4">
+            <h2 className="text-lg font-bold">Información Básica</h2>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Nombre *
-              </label>
-              <input
-                className="input-base"
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                placeholder="Ej: Bundle Remeras Básicas"
-                required
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium">Nombre *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                  className="input"
+                  placeholder="Ej: Bundle Verano"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Slug</label>
+                <input
+                  type="text"
+                  value={formData.slug}
+                  onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
+                  className="input"
+                  placeholder="bundle-verano"
+                />
+              </div>
             </div>
 
-            <div className="md:col-span-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Descripción
-              </label>
+            <div>
+              <label className="block text-sm font-medium">Descripción</label>
               <textarea
-                className="input-base"
-                rows={3}
                 value={formData.description}
                 onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                className="input min-h-[80px]"
                 placeholder="Descripción del bundle..."
               />
             </div>
 
-            <div>
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Slug
-              </label>
-              <input
-                className="input-base"
-                type="text"
-                value={formData.slug}
-                onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
-                placeholder="bundle-remeras-basicas"
-              />
-              <p className="mt-1 text-xs text-slate-500">Se auto-genera si lo dejás vacío</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              id="is_active"
-              type="checkbox"
-              checked={formData.is_active}
-              onChange={(e) => setFormData((p) => ({ ...p, is_active: e.target.checked }))}
-              className="h-4 w-4 rounded"
-            />
-            <label htmlFor="is_active" className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              Bundle activo (visible en la tienda)
-            </label>
-          </div>
-        </div>
-
-        {/* Nota sobre imágenes */}
-        <div className="card-base bg-blue-50 dark:bg-blue-950/30">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Nota:</strong> Después de crear el bundle, podrás subir imágenes en la página de edición.
-          </p>
-        </div>
-
-        {/* Configuración de items */}
-        <div className="card-base space-y-4">
-          <h2 className="text-base font-bold">Configuración del Bundle</h2>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Mínimo de productos a elegir *
-              </label>
-              <input
-                className="input-base"
-                type="number"
-                min={1}
-                value={formData.min_items}
-                onChange={(e) => setFormData((p) => ({ ...p, min_items: Number(e.target.value) }))}
-                required
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Cantidad mínima de productos que el cliente debe elegir
-              </p>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Máximo de productos a elegir *
-              </label>
-              <input
-                className="input-base"
-                type="number"
-                min={1}
-                value={formData.max_items}
-                onChange={(e) => setFormData((p) => ({ ...p, max_items: Number(e.target.value) }))}
-                required
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Cantidad máxima de productos que el cliente puede elegir
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/30">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Ejemplo:</strong> Si configurás Mínimo: 3 y Máximo: 3, el cliente deberá elegir exactamente 3 productos de la lista que agregues abajo.
-            </p>
-          </div>
-        </div>
-
-        {/* Precio */}
-        <div className="card-base space-y-4">
-          <h2 className="text-base font-bold">Precios</h2>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Precio del Bundle *
-              </label>
-              <input
-                className="input-base"
-                type="number"
-                min={0}
-                step={100}
-                value={formData.price}
-                onChange={(e) => setFormData((p) => ({ ...p, price: e.target.value }))}
-                placeholder="0"
-                required
-              />
-              <p className="mt-1 text-xs text-slate-500">El precio que pagará el cliente</p>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Precio de Comparación
-              </label>
-              <input
-                className="input-base"
-                type="number"
-                min={0}
-                step={100}
-                value={formData.compare_at_price}
-                onChange={(e) => setFormData((p) => ({ ...p, compare_at_price: e.target.value }))}
-                placeholder={calculatedCompareAtPrice > 0 ? `Calculado: $${calculatedCompareAtPrice}` : "0"}
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Precio original (suma de productos). Se calcula automáticamente si lo dejás vacío.
-              </p>
-            </div>
-          </div>
-
-          {formData.price && calculatedCompareAtPrice > 0 && (
-            <div className="rounded-xl bg-emerald-50 p-4 dark:bg-emerald-950/30">
-              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                Ahorro: {formatMoney(calculatedCompareAtPrice - Number(formData.price))}{" "}
-                ({Math.round(((calculatedCompareAtPrice - Number(formData.price)) / calculatedCompareAtPrice) * 100)}%)
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Productos */}
-        <div className="card-base space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold">Productos Disponibles</h2>
-            <button
-              type="button"
-              onClick={() => setShowProductModal(true)}
-              className="btn-primary text-sm"
-            >
-              <span className="flex items-center gap-2">
-                <Icon icon={Plus} className="h-4 w-4" />
-                Agregar Productos
-              </span>
-            </button>
-          </div>
-
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            Agregá todos los productos que el cliente podrá elegir. El cliente deberá elegir entre {formData.min_items} y {formData.max_items} productos.
-          </p>
-
-          {items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-              <Icon icon={Package2} className="mx-auto h-8 w-8 text-slate-400" />
-              <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                No hay productos agregados
-              </p>
-              <p className="text-xs text-slate-500">
-                Hacé click en &quot;Agregar Productos&quot; para seleccionar productos por categoría
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {items.map((item, index) => {
-                const product = getProductById(item.product_id);
-                return (
-                  <div
-                    key={`${item.product_id}-${index}`}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
-                  >
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                      {product?.image_path ? (
-                        <img
-                          src={product.image_path}
-                          alt={product.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-slate-400">
-                          <Icon icon={ImageIcon} className="h-5 w-5" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
-                        {product?.name ?? "Producto"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {product?.category ?? "Sin categoría"} · {(product?.stock ?? 0) > 0 ? `${product?.stock ?? 0} disp.` : "Sin stock"}
-                      </p>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                        {formatMoney((product?.price ?? 0) * item.quantity)}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {formatMoney(product?.price ?? 0)} c/u
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      className="text-red-600 hover:text-red-700"
-                      title="Eliminar"
-                    >
-                      <Icon icon={X} className="h-5 w-5" />
-                    </button>
-                  </div>
-                );
-              })}
-
-              {items.length > 0 && (
-                <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      Total ({items.length} productos disponibles)
-                    </span>
-                    <span className="text-lg font-bold text-slate-900 dark:text-slate-50">
-                      {formatMoney(calculatedCompareAtPrice)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Modal de Productos */}
-        {showProductModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900">
-              <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-                  Agregar Productos
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowProductModal(false)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <Icon icon={X} className="h-6 w-6" />
-                </button>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="block text-sm font-medium">Precio *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => setFormData((p) => ({ ...p, price: e.target.value }))}
+                  className="input"
+                  placeholder="0.00"
+                  required
+                />
               </div>
 
-              <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 140px)" }}>
-                {loadingProducts ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Icon icon={Package2} className="h-8 w-8 animate-spin text-slate-400" />
-                  </div>
-                ) : Object.keys(groupedProducts).length === 0 ? (
-                  <div className="py-8 text-center text-sm text-slate-500">
-                    No hay productos disponibles
-                  </div>
+              <div>
+                <label className="block text-sm font-medium">Precio anterior</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.compare_at_price}
+                  onChange={(e) => setFormData((p) => ({ ...p, compare_at_price: e.target.value }))}
+                  className="input"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Cantidad a elegir *</label>
+                <input
+                  type="number"
+                  value={formData.required_quantity}
+                  onChange={(e) => setFormData((p) => ({ ...p, required_quantity: e.target.value }))}
+                  className="input"
+                  placeholder="3"
+                  min="1"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_active"
+                checked={formData.is_active}
+                onChange={(e) => setFormData((p) => ({ ...p, is_active: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              <label htmlFor="is_active" className="text-sm font-medium">
+                Bundle activo (visible en la tienda)
+              </label>
+            </div>
+          </div>
+
+          {/* Imagen del bundle */}
+          <div className="card-base space-y-4">
+            <h2 className="text-lg font-bold">Imagen del Bundle</h2>
+
+            <div className="flex items-center gap-4">
+              <div className="aspect-square h-32 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
+                {formData.image_path ? (
+                  <img src={formData.image_path} alt="Bundle" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="space-y-2">
-                    {Object.entries(groupedProducts).map(([category, products]) => (
-                      <div key={category} className="rounded-xl border border-slate-200 dark:border-slate-800">
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(category)}
-                          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
-                        >
-                          <span className="font-semibold text-slate-900 dark:text-slate-50">
-                            {category} ({products.length})
-                          </span>
-                          <Icon
-                            icon={expandedCategories[category] ? ChevronDown : ChevronRight}
-                            className="h-5 w-5 text-slate-400"
-                          />
-                        </button>
-
-                        {expandedCategories[category] && (
-                          <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {products.map((product) => (
-                                <div
-                                  key={product.id}
-                                  className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                                      {product.image_path ? (
-                                        <img
-                                          src={product.image_path}
-                                          alt={product.name}
-                                          className="h-full w-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="flex h-full items-center justify-center text-slate-400">
-                                          <Icon icon={ImageIcon} className="h-6 w-6" />
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
-                                        {product.name}
-                                      </p>
-                                      <p className="text-xs text-slate-500">
-                                        Stock:{" "}
-                                        <span
-                                          className={
-                                            product.stock > 0
-                                              ? "text-emerald-600"
-                                              : "text-red-600"
-                                          }
-                                        >
-                                          {product.stock > 0 ? product.stock : "Sin stock"}
-                                        </span>
-                                      </p>
-                                      <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                                        {formatMoney(product.price)}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => addProduct(product)}
-                                    disabled={product.stock <= 0 || !product.is_active}
-                                    className="btn-primary mt-2 w-full text-xs"
-                                  >
-                                    Agregar
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                  <div className="flex h-full items-center justify-center text-slate-400">
+                    <Icon icon={ImageIcon} className="h-8 w-8" />
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
                 <button
                   type="button"
-                  onClick={() => setShowProductModal(false)}
-                  className="btn-secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-secondary flex items-center gap-2"
                 >
-                  Cancelar
+                  <Icon icon={Upload} className="h-4 w-4" />
+                  Subir imagen
                 </button>
+                <p className="mt-1 text-xs text-slate-500">
+                  JPG, PNG o WEBP. Máximo 4MB.
+                </p>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Submit */}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="btn-secondary"
-            disabled={saving}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={saving}
-          >
-            {saving ? (
-              <span className="flex items-center gap-2">
-                <Icon icon={Package2} className="h-4 w-4 animate-spin" />
-                Guardando...
-              </span>
+          {/* Productos */}
+          <div className="card-base space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Productos del Bundle</h2>
+              <button
+                type="button"
+                onClick={() => setShowProductSelector(true)}
+                className="btn-primary flex items-center gap-2 text-sm"
+              >
+                <Icon icon={Plus} className="h-4 w-4" />
+                Agregar Producto
+              </button>
+            </div>
+
+            {items.length === 0 ? (
+              <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
+                <Icon icon={ImageIcon} className="mx-auto h-8 w-8 text-slate-400" />
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                  No hay productos agregados
+                </p>
+              </div>
             ) : (
-              "Crear Bundle"
+              <div className="space-y-2">
+                {items.map((item, index) => {
+                  const product = allProducts.find((p) => p.id === item.product_id);
+                  const productImageUrl = product ? getProductImageUrl(product) : null;
+                  return (
+                    <div
+                      key={`${item.product_id}-${index}`}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+                    >
+                      <div className="h-12 w-12 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
+                        {productImageUrl ? (
+                          <img
+                            src={productImageUrl}
+                            alt={product?.name ?? 'Producto'}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-slate-400">
+                            <Icon icon={ImageIcon} className="h-6 w-6" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate-900 dark:text-slate-50">
+                          {product?.name ?? "Producto eliminado"}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {product ? `$${product.price}` : "No disponible"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="rounded p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+                      >
+                        <Icon icon={Trash2} className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-          </button>
+          </div>
+
+          {/* Submit */}
+          <div className="flex items-center justify-end gap-3">
+            <button type="button" onClick={() => router.back()} className="btn-secondary">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary disabled:opacity-50"
+            >
+              {saving ? "Guardando..." : isEditMode ? "Actualizar Bundle" : "Crear Bundle"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Modal selector de productos */}
+      {showProductSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[80vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                Seleccionar Productos
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowProductSelector(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <Icon icon={X} className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 140px)" }}>
+              {loadingProducts ? (
+                <div className="py-8 text-center text-slate-500">Cargando productos...</div>
+              ) : (
+                <div className="space-y-4">
+                  {categories.map((category) => {
+                    const categoryProducts = allProducts.filter(
+                      (p) => (p.category ?? "Sin categoría") === category
+                    );
+                    const isExpanded = expandedCategories[category];
+
+                    return (
+                      <div key={category} className="rounded-lg border border-slate-200 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(category)}
+                          className="flex w-full items-center justify-between p-3 font-medium hover:bg-slate-50 dark:hover:bg-slate-800"
+                        >
+                          <span>{category}</span>
+                          <Icon
+                            icon={isExpanded ? ChevronDown : ChevronRight}
+                            className="h-5 w-5"
+                          />
+                        </button>
+
+                        {isExpanded && (
+                          <div className="grid gap-2 border-t border-slate-200 p-3 dark:border-slate-800 sm:grid-cols-2 lg:grid-cols-3">
+                            {categoryProducts.map((product) => {
+                              const isSelected = items.some((i) => i.product_id === product.id);
+                              const isDisabled = !product.is_active || product.stock <= 0;
+
+                              return (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => handleAddProduct(product)}
+                                  disabled={isSelected || isDisabled}
+                                  className={`flex items-center gap-3 rounded-lg border p-3 text-left transition ${
+                                    isSelected
+                                      ? "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950/20"
+                                      : "border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+                                  } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                                >
+                                  {(() => {
+                                    const imgUrl = getProductImageUrl(product);
+                                    return (
+                                      <>
+                                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
+                                          {imgUrl ? (
+                                            <img
+                                              src={imgUrl}
+                                              alt={product.name}
+                                              className="h-full w-full object-cover"
+                                            />
+                                          ) : (
+                                            <div className="flex h-full items-center justify-center text-slate-400">
+                                              <Icon icon={ImageIcon} className="h-6 w-6" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">
+                                      {product.name}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                      ${product.price}
+                                    </p>
+                                  </div>
+                                  {isSelected && (
+                                    <Icon icon={X} className="h-4 w-4 text-emerald-600" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </form>
+      )}
     </section>
   );
-}
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  }).format(value);
 }

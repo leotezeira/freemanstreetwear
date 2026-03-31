@@ -1,3 +1,8 @@
+// =====================================================
+// API: GET /api/bundles/[slug]
+// Obtiene un bundle activo por slug
+// =====================================================
+
 import { NextResponse } from "next/server";
 import { getBundleBySlug } from "@/lib/services/bundles.service";
 

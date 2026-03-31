@@ -1,3 +1,8 @@
+// =====================================================
+// API: GET /api/bundles
+// Obtiene todos los bundles activos
+// =====================================================
+
 import { NextResponse } from "next/server";
 import { getActiveBundles } from "@/lib/services/bundles.service";
 

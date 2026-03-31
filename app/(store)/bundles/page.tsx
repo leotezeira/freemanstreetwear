@@ -1,3 +1,8 @@
+// =====================================================
+// PÁGINA: /bundles
+// Lista todos los bundles activos
+// =====================================================
+
 import { getActiveBundles } from "@/lib/services/bundles.service";
 import Link from "next/link";
 
@@ -65,6 +70,9 @@ export default async function BundlesPage() {
                   <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
                     {bundle.description ?? "Combo especial de productos"}
                   </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Elegí {bundle.required_quantity} productos
+                  </p>
                 </div>
 
                 <div className="flex items-baseline gap-2">
@@ -86,7 +94,7 @@ export default async function BundlesPage() {
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span>{bundle.bundle_items.length} productos</span>
+                  <span>{bundle.bundle_items.length} productos disponibles</span>
                 </div>
               </Link>
             );
