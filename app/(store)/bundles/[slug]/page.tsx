@@ -5,33 +5,33 @@ import { useParams, useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { CheckCircle2, LoaderCircle, Package2, Image as ImageIcon, X, ChevronRight } from "lucide-react";
+import { CheckCircle2, LoaderCircle, Package2, Plus, X } from "lucide-react";
 
 type BundleProduct = {
   id: string;
   name: string;
-  description: string | null;
   category: string | null;
   price: number;
-  compare_at_price: number | null;
   is_active: boolean;
   stock: number;
   image_path: string | null;
-  product_variants: Array<{
-    id: string;
-    size: string;
-    color: string;
-    sku: string | null;
-    stock: number;
-    price: number | null;
-  }>;
+};
+
+type BundleVariant = {
+  id: string;
+  size: string;
+  color: string;
+  stock: number;
+  price: number | null;
 };
 
 type BundleItem = {
   id: string;
   product_id: string;
-  quantity: number;
+  variant_id: string | null;
   products: BundleProduct | null;
+  product_variants: BundleVariant | null;
+  _all_variants?: BundleVariant[];
 };
 
 type Bundle = {
@@ -42,16 +42,14 @@ type Bundle = {
   price: number;
   compare_at_price: number | null;
   image_path: string | null;
-  min_items: number;
-  max_items: number;
+  required_quantity: number;
   bundle_items: BundleItem[];
 };
 
-type SelectedItem = {
-  slotIndex: number;
+type SelectedProduct = {
+  itemId: string;
   productId: string;
   variantId: string | null;
-  quantity: number;
 };
 
 export default function BundleDetailPage() {
@@ -62,9 +60,8 @@ export default function BundleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [bundle, setBundle] = useState<Bundle | null>(null);
-  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [showProductSelector, setShowProductSelector] = useState(false);
-  const [currentSlotIndex, setCurrentSlotIndex] = useState<number | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   const slug = params.slug as string;
 
@@ -91,195 +88,92 @@ export default function BundleDetailPage() {
     }
   }
 
-  function openProductSelector(slotIndex: number) {
-    setCurrentSlotIndex(slotIndex);
-    setShowProductSelector(true);
-  }
-
-  function handleProductSelect(productId: string) {
-    if (currentSlotIndex === null) return;
-
-    const product = bundle?.bundle_items.find(
-      (item) => item.product_id === productId
-    )?.products;
-
-    if (!product) return;
-
-    // Si el producto tiene variantes, el usuario debe seleccionar una
-    if (product.product_variants && product.product_variants.length > 0) {
-      // Mostrar modal de selección de variantes
-      setShowProductSelector(false);
-      setShowVariantSelector(productId, currentSlotIndex);
-    } else {
-      // Producto sin variantes, agregar directamente
-      setSelectedItems((prev) => {
-        const existing = prev.findIndex((item) => item.slotIndex === currentSlotIndex);
-        if (existing >= 0) {
-          const updated = [...prev];
-          updated[existing] = {
-            slotIndex: currentSlotIndex,
-            productId,
-            variantId: null,
-            quantity: 1,
-          };
-          return updated;
-        }
-        return [
-          ...prev,
-          {
-            slotIndex: currentSlotIndex,
-            productId,
-            variantId: null,
-            quantity: 1,
-          },
-        ];
-      });
-      setShowProductSelector(false);
-      setCurrentSlotIndex(null);
+  function handleSelectProduct(itemId: string, productId: string) {
+    // Verificar si ya está seleccionado
+    const alreadySelected = selectedProducts.find((p) => p.itemId === itemId);
+    if (alreadySelected) {
+      // Deseleccionar
+      setSelectedProducts((prev) => prev.filter((p) => p.itemId !== itemId));
+      // Limpiar variante
+      const newVariants = { ...selectedVariants };
+      delete newVariants[itemId];
+      setSelectedVariants(newVariants);
+      return;
     }
+
+    // Verificar si ya alcanzó el máximo
+    if (selectedProducts.length >= (bundle?.required_quantity ?? 0)) {
+      toast.push({
+        variant: "error",
+        title: "Máximo alcanzado",
+        description: `Ya seleccionaste ${bundle?.required_quantity} productos`,
+      });
+      return;
+    }
+
+    // Agregar selección
+    setSelectedProducts((prev) => [
+      ...prev,
+      { itemId, productId, variantId: null },
+    ]);
   }
 
-  const [showingVariantFor, setShowingVariantFor] = useState<{
-    productId: string;
-    slotIndex: number;
-  } | null>(null);
-
-  function setShowVariantSelector(productId: string, slotIndex: number) {
-    setShowingVariantFor({ productId, slotIndex });
-  }
-
-  function handleVariantSelect(productId: string, variantId: string) {
-    if (!showingVariantFor) return;
-
-    const { slotIndex } = showingVariantFor;
-
-    setSelectedItems((prev) => {
-      const existing = prev.findIndex((item) => item.slotIndex === slotIndex);
-      if (existing >= 0) {
-        const updated = [...prev];
-        updated[existing] = {
-          slotIndex,
-          productId,
-          variantId,
-          quantity: 1,
-        };
-        return updated;
-      }
-      return [
-        ...prev,
-        {
-          slotIndex,
-          productId,
-          variantId,
-          quantity: 1,
-        },
-      ];
-    });
-
-    setShowingVariantFor(null);
-  }
-
-  function removeSelectedItem(slotIndex: number) {
-    setSelectedItems((prev) => prev.filter((item) => item.slotIndex !== slotIndex));
+  function handleVariantChange(itemId: string, variantId: string) {
+    setSelectedVariants((prev) => ({
+      ...prev,
+      [itemId]: variantId === "" ? "" : variantId,
+    }));
   }
 
   async function handleAddToCart() {
     if (!bundle) return;
 
-    // Verificar que se hayan seleccionado todos los items requeridos
-    if (selectedItems.length < bundle.min_items) {
+    // Verificar cantidad seleccionada
+    if (selectedProducts.length !== bundle.required_quantity) {
       toast.push({
         variant: "error",
-        title: "Productos incompletos",
-        description: `Debés elegir al menos ${bundle.min_items} productos`,
+        title: "Seleccioná más productos",
+        description: `Debés elegir exactamente ${bundle.required_quantity} productos`,
       });
       return;
     }
 
-    if (selectedItems.length > bundle.max_items) {
-      toast.push({
-        variant: "error",
-        title: "Demasiados productos",
-        description: `Máximo ${bundle.max_items} productos permitidos`,
-      });
-      return;
-    }
-
-    // Verificar que todos los items tengan variante si es requerida
-    const itemsWithoutVariant = selectedItems.filter((item) => {
-      const product = bundle.bundle_items.find(
-        (p) => p.product_id === item.productId
-      )?.products;
-      const hasVariants = product?.product_variants && product.product_variants.length > 0;
-      return hasVariants && !item.variantId;
-    });
+    // Verificar variantes seleccionadas
+    const itemsWithoutVariant = selectedProducts.filter(
+      (p) => !p.variantId && !selectedVariants[p.itemId]
+    );
 
     if (itemsWithoutVariant.length > 0) {
       toast.push({
         variant: "error",
-        title: "Faltan variantes",
-        description: "Debés seleccionar talle y color para todos los productos",
+        title: "Seleccioná variantes",
+        description: "Tenés que elegir talle y color para algunos productos",
       });
       return;
     }
 
     setAdding(true);
     try {
-      // Calcular precio total de los items para prorratear
-      const totalItemsPrice = selectedItems.reduce((sum, item) => {
-        const product = bundle.bundle_items.find((p) => p.product_id === item.productId);
-        let itemPrice = product?.products?.price ?? 0;
-
-        // Si hay variante seleccionada, usar su precio si es diferente
-        if (item.variantId) {
-          const variants = product?.products?.product_variants ?? [];
-          const variant = variants.find((v) => v.id === item.variantId);
-          if (variant && variant.price !== null) {
-            itemPrice = variant.price;
-          }
-        }
-
-        return sum + itemPrice * item.quantity;
-      }, 0);
-
-      // Generar un ID único para agrupar los items del bundle en el carrito
-      const bundleGroupId = crypto.randomUUID();
+      // Calcular precio prorrateado
+      const pricePerProduct = bundle.price / bundle.required_quantity;
 
       // Agregar cada producto seleccionado al carrito
-      for (const selectedItem of selectedItems) {
-        const product = bundle.bundle_items.find((p) => p.product_id === selectedItem.productId);
-        if (!product?.products) continue;
+      for (const selected of selectedProducts) {
+        const bundleItem = bundle.bundle_items.find((item) => item.id === selected.itemId);
+        const product = bundleItem?.products;
+        const variant = bundleItem?.product_variants;
 
-        let itemPrice = product.products.price;
-        let variantName = "";
-
-        // Si hay variante seleccionada, usar su precio
-        if (selectedItem.variantId) {
-          const variants = product.products.product_variants ?? [];
-          const variant = variants.find((v) => v.id === selectedItem.variantId);
-          if (variant) {
-            if (variant.price !== null) {
-              itemPrice = variant.price;
-            }
-            variantName = `${variant.size} / ${variant.color}`;
-          }
-        }
-
-        const proratedPrice = bundle.price * (itemPrice / totalItemsPrice);
+        const variantId = selected.variantId || selectedVariants[selected.itemId] || undefined;
 
         addToCart({
-          productId: selectedItem.productId,
-          variantId: selectedItem.variantId ?? undefined,
-          name: variantName
-            ? `${product.products.name} (${variantName})`
-            : product.products.name,
-          unitPrice: proratedPrice,
-          quantity: selectedItem.quantity,
-          imageUrl: product.products.image_path ?? null,
-          stock: product.products.stock ?? 0,
-          isActive: product.products.is_active ?? false,
-          bundleId: bundle.id,
-          bundleGroupId,
+          productId: selected.productId,
+          variantId,
+          name: `${product?.name ?? "Producto"} (Bundle: ${bundle.name})`,
+          unitPrice: pricePerProduct,
+          quantity: 1,
+          imageUrl: product?.image_path,
+          stock: product?.stock ?? 0,
+          isActive: product?.is_active ?? false,
         });
       }
 
@@ -309,6 +203,7 @@ export default function BundleDetailPage() {
           <div className="space-y-4">
             <div className="h-8 w-3/4 animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
             <div className="h-4 w-full animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
           </div>
         </div>
       </main>
@@ -327,11 +222,11 @@ export default function BundleDetailPage() {
     ? bundle.compare_at_price - bundle.price
     : 0;
 
-  const selectedProductIds = new Set(selectedItems.map((item) => item.productId));
+  const remainingSelections = bundle.required_quantity - selectedProducts.length;
 
   return (
     <main className="app-container py-10">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-5xl">
         <button
           type="button"
           onClick={() => router.back()}
@@ -389,93 +284,80 @@ export default function BundleDetailPage() {
               )}
             </div>
 
-            {/* Selector de productos */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold">
-                  Elegí {bundle.min_items} productos{bundle.min_items !== bundle.max_items ? ` a ${bundle.max_items}` : ""}
-                </h2>
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                  {selectedItems.length} / {bundle.min_items}{bundle.min_items !== bundle.max_items ? `-${bundle.max_items}` : ""} seleccionados
-                </span>
-              </div>
+            {/* Instrucciones de selección */}
+            <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/30">
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                Elegí {bundle.required_quantity} productos
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                {remainingSelections > 0
+                  ? `Te faltan ${remainingSelections} productos para completar el bundle`
+                  : "¡Completaste la selección!"}
+              </p>
+            </div>
 
-              {/* Slots para cada producto */}
-              <div className="space-y-3">
-                {Array.from({ length: bundle.max_items }).map((_, index) => {
-                  const selectedItem = selectedItems.find((item) => item.slotIndex === index);
-                  const product = selectedItem
-                    ? bundle.bundle_items.find((p) => p.product_id === selectedItem.productId)?.products
-                    : null;
-                  const variant = selectedItem?.variantId
-                    ? product?.product_variants?.find((v) => v.id === selectedItem.variantId)
+            {/* Productos seleccionados */}
+            {selectedProducts.length > 0 && (
+              <div className="space-y-2">
+                <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  Productos seleccionados ({selectedProducts.length}/{bundle.required_quantity}):
+                </h2>
+                {selectedProducts.map((selected) => {
+                  const bundleItem = bundle.bundle_items.find(
+                    (item) => item.id === selected.itemId
+                  );
+                  const product = bundleItem?.products;
+                  const variantId = selected.variantId || selectedVariants[selected.itemId];
+                  const variant = bundleItem?.product_variants?.id === variantId
+                    ? bundleItem.product_variants
                     : null;
 
                   return (
                     <div
-                      key={index}
-                      className={`rounded-xl border-2 p-4 transition ${
-                        selectedItem
-                          ? "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950/20"
-                          : "border-slate-200 dark:border-slate-800"
-                      }`}
+                      key={selected.itemId}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30"
                     >
-                      {selectedItem ? (
-                        <div className="flex items-start gap-3">
-                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
-                            {product?.image_path ? (
-                              <img
-                                src={product.image_path}
-                                alt={product.name}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-slate-400">
-                                <Icon icon={ImageIcon} className="h-8 w-8" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-slate-900 dark:text-slate-50">
-                              {product?.name ?? "Producto"}
-                            </p>
-                            {variant && (
-                              <p className="text-sm text-slate-600 dark:text-slate-300">
-                                Talle: {variant.size} · Color: {variant.color}
-                              </p>
-                            )}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeSelectedItem(index)}
-                            className="text-red-600 hover:text-red-700"
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+                          {product?.name ?? "Producto"}
+                        </p>
+                        {variant ? (
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                            Talle: {variant.size} · Color: {variant.color}
+                          </p>
+                        ) : (
+                          <select
+                            className="mt-1 text-xs rounded border border-emerald-300 bg-white px-2 py-1 dark:border-emerald-800 dark:bg-slate-900"
+                            value={selectedVariants[selected.itemId] ?? ""}
+                            onChange={(e) => handleVariantChange(selected.itemId, e.target.value)}
                           >
-                            <Icon icon={X} className="h-5 w-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => openProductSelector(index)}
-                          className="flex w-full items-center justify-center gap-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
-                        >
-                          <Icon icon={Package2} className="h-5 w-5" />
-                          <span>Seleccionar producto {index + 1}</span>
-                        </button>
-                      )}
+                            <option value="">Elegí talle y color...</option>
+                            {bundleItem?._all_variants?.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.size} · {v.color} {v.stock <= 0 ? "(Sin stock)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectProduct(selected.itemId, selected.productId)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Icon icon={X} className="h-4 w-4" />
+                      </button>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            )}
 
             {/* Botón */}
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={adding || selectedItems.length < bundle.min_items}
+              disabled={adding || selectedProducts.length !== bundle.required_quantity}
               className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {adding ? (
@@ -489,228 +371,73 @@ export default function BundleDetailPage() {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Modal de selección de productos */}
-      {showProductSelector && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-                Seleccioná un producto
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowProductSelector(false);
-                  setCurrentSlotIndex(null);
-                }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <Icon icon={X} className="h-6 w-6" />
-              </button>
-            </div>
+        {/* Pool de productos disponibles */}
+        <div className="mt-10">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4">
+            Productos disponibles para elegir:
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {bundle.bundle_items.map((item) => {
+              const product = item.products;
+              const isSelected = selectedProducts.some((p) => p.itemId === item.id);
 
-            <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 140px)" }}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {bundle.bundle_items
-                  .filter((item) => !selectedProductIds.has(item.product_id) || selectedItems.find(s => s.productId === item.product_id))
-                  .map((item) => {
-                    const product = item.products;
-                    if (!product) return null;
-
-                    return (
-                      <button
-                        key={product.id}
-                        type="button"
-                        onClick={() => handleProductSelect(product.id)}
-                        disabled={!product.is_active || product.stock <= 0}
-                        className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-800 dark:hover:bg-slate-800"
-                      >
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
-                          {product.image_path ? (
-                            <img
-                              src={product.image_path}
-                              alt={product.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-slate-400">
-                              <Icon icon={ImageIcon} className="h-8 w-8" />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-slate-900 dark:text-slate-50 truncate">
-                            {product.name}
-                          </p>
-                          <p className="text-sm text-slate-600 dark:text-slate-300">
-                            {formatMoney(product.price)}
-                          </p>
-                          {product.product_variants && product.product_variants.length > 0 && (
-                            <p className="text-xs text-slate-500">
-                              {product.product_variants.length} variantes disponibles
-                            </p>
-                          )}
-                        </div>
-
-                        <Icon icon={ChevronRight} className="h-5 w-5 text-slate-400" />
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de selección de variantes */}
-      {showingVariantFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-                Seleccioná una variante
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowingVariantFor(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <Icon icon={X} className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 140px)" }}>
-              {(() => {
-                const product = bundle.bundle_items.find(
-                  (p) => p.product_id === showingVariantFor.productId
-                )?.products;
-
-                if (!product?.product_variants) return null;
-
-                const variants = product.product_variants;
-                const sizes = Array.from(new Set(variants.map((v) => v.size))).filter(Boolean);
-                const colors = Array.from(new Set(variants.map((v) => v.color))).filter(Boolean);
-
-                return (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-20 w-20 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
-                        {product.image_path ? (
-                          <img
-                            src={product.image_path}
-                            alt={product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-slate-400">
-                            <Icon icon={ImageIcon} className="h-10 w-10" />
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-slate-50">
-                          {product.name}
-                        </p>
-                        <p className="text-sm text-slate-600 dark:text-slate-300">
-                          {formatMoney(product.price)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Fila de talles */}
-                    {sizes.length > 0 && (
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                          Talle:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {sizes.map((size) => {
-                            const sizeVariants = variants.filter((v) => v.size === size && v.stock > 0);
-                            return (
-                              <button
-                                key={size}
-                                type="button"
-                                onClick={() => {
-                                  if (sizeVariants.length === 1) {
-                                    handleVariantSelect(product.id, sizeVariants[0].id);
-                                  }
-                                }}
-                                disabled={sizeVariants.length === 0}
-                                className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-700 dark:hover:border-slate-600"
-                              >
-                                {size}
-                              </button>
-                            );
-                          })}
-                        </div>
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectProduct(item.id, item.product_id)}
+                  disabled={isSelected}
+                  className={`group text-left card-base space-y-3 transition hover:shadow-lg ${
+                    isSelected
+                      ? "opacity-50 cursor-default"
+                      : remainingSelections <= 0
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
+                    {product?.image_path ? (
+                      <img
+                        src={product.image_path}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-slate-400">
+                        <Icon icon={Package2} className="h-12 w-12" />
                       </div>
                     )}
-
-                    {/* Fila de colores */}
-                    {colors.length > 0 && (
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                          Color:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {colors.map((color) => {
-                            const colorVariants = variants.filter((v) => v.color === color && v.stock > 0);
-                            return (
-                              <button
-                                key={color}
-                                type="button"
-                                onClick={() => {
-                                  if (colorVariants.length === 1) {
-                                    handleVariantSelect(product.id, colorVariants[0].id);
-                                  }
-                                }}
-                                disabled={colorVariants.length === 0}
-                                className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-700 dark:hover:border-slate-600"
-                              >
-                                {color}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Selector completo */}
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                        O seleccioná una combinación:
-                      </p>
-                      <select
-                        className="input-base w-full"
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            handleVariantSelect(product.id, e.target.value);
-                          }
-                        }}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Elegí una variante...
-                        </option>
-                        {variants
-                          .filter((v) => v.stock > 0)
-                          .map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.size} / {v.color} - {formatMoney(v.price ?? product.price)} {v.stock <= 0 ? "(Sin stock)" : ""}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
                   </div>
-                );
-              })()}
-            </div>
+
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-50 group-hover:underline">
+                      {product?.name ?? "Producto"}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {product?.category ?? "Sin categoría"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                      {formatMoney(product?.price ?? 0)}
+                    </span>
+                    {isSelected ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                        <Icon icon={CheckCircle2} className="h-4 w-4" />
+                        Seleccionado
+                      </span>
+                    ) : (
+                      <Icon icon={Plus} className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
-      )}
+      </div>
     </main>
   );
 }

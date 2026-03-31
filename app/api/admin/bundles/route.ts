@@ -29,11 +29,10 @@ export async function POST(request: NextRequest) {
       compare_at_price: body.compare_at_price !== undefined ? Number(body.compare_at_price) : undefined,
       is_active: Boolean(body.is_active ?? true),
       image_path: body.image_path ?? null,
-      min_items: Number(body.min_items ?? 1),
-      max_items: Number(body.max_items ?? 1),
+      required_quantity: Number(body.required_quantity ?? 3),
       items: Array.isArray(body.items) ? body.items.map((item: any) => ({
         product_id: String(item.product_id),
-        quantity: Number(item.quantity ?? 1),
+        variant_id: item.variant_id ?? null,
       })) : [],
     };
 

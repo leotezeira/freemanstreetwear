@@ -7,17 +7,7 @@ export type Bundle = {
   compare_at_price: number | null;
   is_active: boolean;
   image_path: string | null;
-  min_items: number;
-  max_items: number;
-  created_at: string;
-};
-
-export type BundleImage = {
-  id: string;
-  bundle_id: string;
-  image_path: string;
-  sort_order: number;
-  is_primary: boolean;
+  required_quantity: number; // Cantidad de productos que el cliente debe elegir
   created_at: string;
 };
 
@@ -25,37 +15,37 @@ export type BundleItem = {
   id: string;
   bundle_id: string;
   product_id: string;
-  quantity: number;
+  variant_id: string | null; // Si es null, el cliente elige la variante
   created_at: string;
 };
 
 export type BundleWithItems = Bundle & {
   bundle_items: (BundleItem & {
     products: {
-      id: string;
       name: string;
-      description: string | null;
       category: string | null;
       price: number;
-      compare_at_price: number | null;
       is_active: boolean;
       stock: number;
       image_path: string | null;
-      product_images?: Array<{
-        image_path: string | null;
-        is_primary: boolean;
-      }>;
-      product_variants?: Array<{
-        id: string;
-        size: string;
-        color: string;
-        sku: string | null;
-        stock: number;
-        price: number | null;
-      }>;
     } | null;
+    product_variants: {
+      id: string;
+      size: string;
+      color: string;
+      sku: string | null;
+      stock: number;
+      price: number | null;
+    } | null;
+    _all_variants?: {
+      id: string;
+      size: string;
+      color: string;
+      sku: string | null;
+      stock: number;
+      price: number | null;
+    }[];
   })[];
-  bundle_images?: BundleImage[];
 };
 
 export type BundleFormData = {
@@ -66,10 +56,9 @@ export type BundleFormData = {
   compare_at_price?: number;
   is_active: boolean;
   image_path?: string | null;
-  min_items: number;
-  max_items: number;
+  required_quantity: number; // Cantidad de productos a elegir
   items: Array<{
     product_id: string;
-    quantity: number;
+    variant_id?: string | null; // null = cliente elige variante
   }>;
 };

@@ -4,9 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { X, Plus, Package2, ChevronRight, ChevronDown, Image as ImageIcon } from "lucide-react";
-import type { BundleWithItems, BundleImage } from "@/types/bundle";
-import { BundleImagesUploader } from "@/components/admin/bundle-images-uploader";
+import { X, Upload, Image as ImageIcon, ChevronDown, ChevronRight, CheckSquare, Square } from "lucide-react";
+import type { BundleWithItems } from "@/types/bundle";
 
 type Product = {
   id: string;
@@ -17,14 +16,18 @@ type Product = {
   stock: number;
   is_active: boolean;
   image_path?: string | null;
+  variants?: Array<{
+    id: string;
+    size: string;
+    color: string;
+    stock: number;
+  }>;
 };
 
 type BundleItem = {
   product_id: string;
-  quantity: number;
+  variant_id: string | null; // null = el cliente elige la variante
 };
-
-type GroupedProducts = Record<string, Product[]>;
 
 export default function AdminBundleFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const router = useRouter();
@@ -32,7 +35,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [bundleId, setBundleId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -42,16 +44,15 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     price: "",
     compare_at_price: "",
     is_active: true,
-    min_items: 1,
-    max_items: 1,
+    image_path: "",
+    required_quantity: "3", // Cantidad de productos que el cliente debe elegir
   });
 
   const [items, setItems] = useState<BundleItem[]>([]);
-  const [groupedProducts, setGroupedProducts] = useState<GroupedProducts>({});
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [bundleImages, setBundleImages] = useState<BundleImage[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const isEditMode = searchParams.has("edit");
 
@@ -59,14 +60,34 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     if (isEditMode) {
       void loadBundle();
     }
+    void loadAllProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode]);
+
+  async function loadAllProducts() {
+    setLoadingProducts(true);
+    try {
+      const res = await fetch("/api/admin/products/all");
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Error al cargar");
+      setAllProducts(body.products ?? []);
+      
+      // Expandir primera categoría por defecto
+      const categories = Array.from(new Set((body.products ?? []).map((p: Product) => p.category ?? "Sin categoría"))) as string[];
+      if (categories.length > 0) {
+        setExpandedCategories({ [categories[0]]: true });
+      }
+    } catch (e) {
+      console.error("[Load products]", e);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
 
   async function loadBundle() {
     const { id } = await params;
     if (!id) return;
 
-    setBundleId(id);
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/bundles/${id}`);
@@ -81,16 +102,15 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         price: String(bundle.price),
         compare_at_price: bundle.compare_at_price ? String(bundle.compare_at_price) : "",
         is_active: bundle.is_active,
-        min_items: bundle.min_items ?? 1,
-        max_items: bundle.max_items ?? 1,
+        image_path: bundle.image_path ?? "",
+        required_quantity: String(bundle.required_quantity ?? 3),
       });
       setItems(
         bundle.bundle_items.map((item) => ({
           product_id: item.product_id,
-          quantity: item.quantity,
+          variant_id: item.variant_id,
         }))
       );
-      setBundleImages(bundle.bundle_images ?? []);
     } catch (e) {
       toast.push({
         variant: "error",
@@ -102,64 +122,76 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     }
   }
 
-  async function loadAllProducts() {
-    setLoadingProducts(true);
-    try {
-      const res = await fetch("/api/admin/products?byCategory=true");
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Error al cargar productos");
-      setGroupedProducts(body.grouped ?? {});
-    } catch (e) {
-      toast.push({
-        variant: "error",
-        title: "Error",
-        description: e instanceof Error ? e.message : "No se pudieron cargar los productos",
-      });
-    } finally {
-      setLoadingProducts(false);
-    }
-  }
-
-  useEffect(() => {
-    if (showProductModal && Object.keys(groupedProducts).length === 0) {
-      void loadAllProducts();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showProductModal]);
-
   function toggleCategory(category: string) {
-    setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [category]: !prev[category],
+    }));
   }
 
-  function addProduct(product: Product) {
-    const alreadyAdded = items.some((item) => item.product_id === product.id);
-    if (alreadyAdded) {
+  function addProducts(products: Product[]) {
+    const existingIds = new Set(items.map((item) => item.product_id));
+    const newProducts = products.filter((p) => !existingIds.has(p.id));
+    
+    if (newProducts.length === 0) {
       toast.push({
         variant: "error",
-        title: "Producto ya agregado",
-        description: "Este producto ya está en el bundle",
+        title: "Productos ya agregados",
+        description: "Todos los productos seleccionados ya están en el pool",
       });
       return;
     }
 
     setItems((prev) => [
       ...prev,
-      {
+      ...newProducts.map((product) => ({
         product_id: product.id,
-        quantity: 1,
-      },
+        variant_id: null,
+      })),
     ]);
-    setShowProductModal(false);
+    
+    toast.push({
+      variant: "success",
+      title: "Productos agregados",
+      description: `${newProducts.length} productos fueron agregados al pool`,
+    });
   }
 
   function removeItem(index: number) {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateItemQuantity(index: number, quantity: number) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantity: Math.max(1, quantity) } : item))
-    );
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/admin/bundles/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? "Error al subir");
+
+      setFormData((p) => ({ ...p, image_path: result.imageUrl }));
+      toast.push({
+        variant: "success",
+        title: "Imagen subida",
+        description: "La imagen fue subida exitosamente",
+      });
+    } catch (err) {
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo subir la imagen",
+      });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -178,7 +210,17 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
       toast.push({
         variant: "error",
         title: "Productos requeridos",
-        description: "El bundle debe tener al menos un producto",
+        description: "El bundle debe tener al menos un producto en el pool",
+      });
+      return;
+    }
+
+    const reqQty = Number(formData.required_quantity);
+    if (!reqQty || reqQty < 1) {
+      toast.push({
+        variant: "error",
+        title: "Cantidad requerida",
+        description: "El bundle debe tener una cantidad mínima de productos para elegir",
       });
       return;
     }
@@ -193,6 +235,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
         ...formData,
         price: Number(formData.price) || 0,
         compare_at_price: formData.compare_at_price ? Number(formData.compare_at_price) : undefined,
+        required_quantity: reqQty,
         items,
       };
 
@@ -223,18 +266,14 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
     }
   }
 
-  const calculatedCompareAtPrice = items.reduce((sum, item) => {
-    const product = Object.values(groupedProducts)
-      .flat()
-      .find((p) => p.id === item.product_id);
-    return sum + (product?.price ?? 0) * item.quantity;
-  }, 0);
-
-  function getProductById(id: string): Product | undefined {
-    return Object.values(groupedProducts)
-      .flat()
-      .find((p) => p.id === id);
-  }
+  const calculatedCompareAtPrice = (() => {
+    if (items.length === 0) return 0;
+    const avgPrice = items.reduce((sum, item) => {
+      const product = allProducts.find((p) => p.id === item.product_id);
+      return sum + (product?.price ?? 0);
+    }, 0) / items.length;
+    return Math.round(avgPrice * Number(formData.required_quantity || 3));
+  })();
 
   return (
     <section className="space-y-6 max-w-4xl">
@@ -306,6 +345,80 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
                   Se auto-genera si lo dejás vacío
                 </p>
               </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Imagen del Bundle
+                </label>
+                <div className="mt-2 flex items-start gap-4">
+                  {formData.image_path ? (
+                    <div className="relative group">
+                      <img
+                        src={formData.image_path}
+                        alt="Vista previa"
+                        className="h-32 w-32 object-cover rounded-xl border border-slate-200 dark:border-slate-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData((p) => ({ ...p, image_path: "" }))}
+                        className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <Icon icon={X} className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex h-32 w-32 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    >
+                      <div className="text-center">
+                        <Icon icon={Upload} className="mx-auto h-8 w-8 text-slate-400" />
+                        <p className="mt-1 text-xs text-slate-500">Click para subir</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <input
+                      className="input-base"
+                      type="text"
+                      value={formData.image_path}
+                      onChange={(e) => setFormData((p) => ({ ...p, image_path: e.target.value }))}
+                      placeholder="O pegá una URL de imagen..."
+                    />
+                    <p className="text-xs text-slate-500">
+                      Formatos: JPG, PNG, WebP · Máx: 5MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Cantidad de productos a elegir *
+                </label>
+                <input
+                  className="input-base"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={formData.required_quantity}
+                  onChange={(e) => setFormData((p) => ({ ...p, required_quantity: e.target.value }))}
+                  placeholder="3"
+                  required
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  El cliente deberá elegir esta cantidad de productos del pool
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -319,54 +432,6 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
               <label htmlFor="is_active" className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Bundle activo (visible en la tienda)
               </label>
-            </div>
-          </div>
-
-          {/* Imágenes del Bundle */}
-          {isEditMode && bundleId && (
-            <div className="card-base">
-              <BundleImagesUploader bundleId={bundleId} initialImages={bundleImages} />
-            </div>
-          )}
-
-          {/* Configuración de items */}
-          <div className="card-base space-y-4">
-            <h2 className="text-base font-bold">Configuración del Bundle</h2>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  Mínimo de productos a elegir *
-                </label>
-                <input
-                  className="input-base"
-                  type="number"
-                  min={1}
-                  value={formData.min_items}
-                  onChange={(e) => setFormData((p) => ({ ...p, min_items: Number(e.target.value) }))}
-                  required
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Cantidad mínima de productos que el cliente debe elegir
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  Máximo de productos a elegir *
-                </label>
-                <input
-                  className="input-base"
-                  type="number"
-                  min={1}
-                  value={formData.max_items}
-                  onChange={(e) => setFormData((p) => ({ ...p, max_items: Number(e.target.value) }))}
-                  required
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Cantidad máxima de productos que el cliente puede elegir
-                </p>
-              </div>
             </div>
           </div>
 
@@ -425,216 +490,199 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
 
           {/* Productos */}
           <div className="card-base space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold">Productos Disponibles</h2>
+            <h2 className="text-base font-bold">Productos del Bundle</h2>
+
+            {/* Filtro por categoría */}
+            <div className="flex gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => setShowProductModal(true)}
-                className="btn-primary text-sm"
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                  selectedCategory === null
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
               >
-                <span className="flex items-center gap-2">
-                  <Icon icon={Plus} className="h-4 w-4" />
-                  Agregar Productos
-                </span>
+                Todas las categorías
               </button>
+              {Array.from(new Set(allProducts.map((p) => p.category ?? "Sin categoría"))).map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                    selectedCategory === category
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
             </div>
 
-            {items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-                <Icon icon={Package2} className="mx-auto h-8 w-8 text-slate-400" />
-                <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  No hay productos agregados
-                </p>
-                <p className="text-xs text-slate-500">
-                  Hacé click en &quot;Agregar Productos&quot; para seleccionar productos por categoría
-                </p>
+            {/* Lista de productos por categoría */}
+            {loadingProducts ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-900" />
+                ))}
               </div>
             ) : (
-              <div className="space-y-3">
-                {items.map((item, index) => {
-                  const product = getProductById(item.product_id);
+              <div className="space-y-2">
+                {Array.from(
+                  new Set(
+                    (selectedCategory
+                      ? allProducts.filter((p) => p.category === selectedCategory)
+                      : allProducts
+                    ).map((p) => p.category ?? "Sin categoría")
+                  )
+                ).map((category) => {
+                  const categoryProducts = (selectedCategory
+                    ? allProducts.filter((p) => p.category === selectedCategory)
+                    : allProducts
+                  ).filter((p) => (p.category ?? "Sin categoría") === category);
+                  const isExpanded = expandedCategories[category] ?? false;
+
                   return (
-                    <div
-                      key={`${item.product_id}-${index}`}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
-                    >
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                        {product?.image_path ? (
-                          <img
-                            src={product.image_path}
-                            alt={product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-slate-400">
-                            <Icon icon={ImageIcon} className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
-                          {product?.name ?? "Producto"}
-                        </p>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="number"
-                            min={1}
-                            value={item.quantity}
-                            onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
-                            className="w-16 rounded border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
-                          />
-                          <span className="text-xs text-slate-500">unidades</span>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                          {formatMoney((product?.price ?? 0) * item.quantity)}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {formatMoney(product?.price ?? 0)} c/u
-                        </p>
-                      </div>
-
+                    <div key={category} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                       <button
                         type="button"
-                        onClick={() => removeItem(index)}
-                        className="text-red-600 hover:text-red-700"
-                        title="Eliminar"
+                        onClick={() => toggleCategory(category)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                       >
-                        <Icon icon={X} className="h-5 w-5" />
+                        <div className="flex items-center gap-3">
+                          <Icon
+                            icon={isExpanded ? ChevronDown : ChevronRight}
+                            className="h-4 w-4 text-slate-400"
+                          />
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                            {category}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            ({categoryProducts.length} productos)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addProducts(categoryProducts);
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition"
+                        >
+                          Agregar todos
+                        </button>
                       </button>
+
+                      {isExpanded && (
+                        <div className="max-h-96 overflow-auto divide-y divide-slate-100 dark:divide-slate-800">
+                          {categoryProducts.map((product) => {
+                            const isSelected = items.some((item) => item.product_id === product.id);
+                            return (
+                              <label
+                                key={product.id}
+                                className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      addProducts([product]);
+                                    } else {
+                                      const index = items.findIndex((item) => item.product_id === product.id);
+                                      if (index >= 0) removeItem(index);
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                                />
+                                <Icon
+                                  icon={isSelected ? CheckSquare : Square}
+                                  className={`h-5 w-5 ${
+                                    isSelected
+                                      ? "text-emerald-600"
+                                      : "text-slate-400"
+                                  }`}
+                                />
+                                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                                  {product.image_path ? (
+                                    <img
+                                      src={product.image_path}
+                                      alt={product.name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full items-center justify-center text-slate-400">
+                                      <Icon icon={ImageIcon} className="h-5 w-5" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-slate-900 dark:text-slate-50 truncate">
+                                    {product.name}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                                    <span className={product.stock > 0 ? "text-emerald-600" : "text-red-600"}>
+                                      {product.stock > 0 ? `${product.stock} disp.` : "Sin stock"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                                    {formatMoney(product.price)}
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
 
-          {/* Modal de Productos */}
-          {showProductModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900">
-                <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-                    Agregar Productos
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowProductModal(false)}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  >
-                    <Icon icon={X} className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 140px)" }}>
-                  {loadingProducts ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Icon icon={Package2} className="h-8 w-8 animate-spin text-slate-400" />
-                    </div>
-                  ) : Object.keys(groupedProducts).length === 0 ? (
-                    <div className="py-8 text-center text-sm text-slate-500">
-                      No hay productos disponibles
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {Object.entries(groupedProducts).map(([category, products]) => (
-                        <div key={category} className="rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => toggleCategory(category)}
-                            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
-                          >
-                            <span className="font-semibold text-slate-900 dark:text-slate-50">
-                              {category} ({products.length})
-                            </span>
-                            <Icon
-                              icon={expandedCategories[category] ? ChevronDown : ChevronRight}
-                              className="h-5 w-5 text-slate-400"
-                            />
-                          </button>
-
-                          {expandedCategories[category] && (
-                            <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                {products.map((product) => (
-                                  <div
-                                    key={product.id}
-                                    className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                                        {product.image_path ? (
-                                          <img
-                                            src={product.image_path}
-                                            alt={product.name}
-                                            className="h-full w-full object-cover"
-                                          />
-                                        ) : (
-                                          <div className="flex h-full items-center justify-center text-slate-400">
-                                            <Icon icon={ImageIcon} className="h-6 w-6" />
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
-                                          {product.name}
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                          Stock:{" "}
-                                          <span
-                                            className={
-                                              product.stock > 0
-                                                ? "text-emerald-600"
-                                                : "text-red-600"
-                                            }
-                                          >
-                                            {product.stock > 0 ? product.stock : "Sin stock"}
-                                          </span>
-                                        </p>
-                                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                                          {formatMoney(product.price)}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => addProduct(product)}
-                                      disabled={product.stock <= 0 || !product.is_active}
-                                      className="btn-primary mt-2 w-full text-xs"
-                                    >
-                                      Agregar
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+            {/* Productos seleccionados */}
+            {items.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Productos en el pool ({items.length}):
+                </h3>
+                <div className="space-y-2">
+                  {items.map((item, index) => {
+                    const product = allProducts.find((p) => p.id === item.product_id);
+                    return (
+                      <div
+                        key={`${item.product_id}-${index}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+                            {product?.name ?? "Producto"}
+                          </p>
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                            {product?.category ?? "Sin categoría"}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setShowProductModal(false)}
-                    className="btn-secondary"
-                  >
-                    Cancelar
-                  </button>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Icon icon={X} className="h-5 w-5" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Submit */}
-          <div className="flex justify-end gap-3">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={() => router.back()}
@@ -648,14 +696,7 @@ export default function AdminBundleFormPage({ params }: { params: Promise<{ id?:
               className="btn-primary"
               disabled={saving}
             >
-              {saving ? (
-                <span className="flex items-center gap-2">
-                  <Icon icon={Package2} className="h-4 w-4 animate-spin" />
-                  Guardando...
-                </span>
-              ) : (
-                "Guardar Bundle"
-              )}
+              {saving ? "Guardando..." : isEditMode ? "Actualizar" : "Crear Bundle"}
             </button>
           </div>
         </form>
