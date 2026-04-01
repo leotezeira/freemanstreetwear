@@ -66,6 +66,10 @@ export type BundleProduct = {
     stock: number;
     price: number | null;
   }> | [];
+  // URL firmada de la imagen principal (para uso en frontend)
+  primary_image_url?: string | null;
+  // Mantenido para compatibilidad
+  image_path?: string | null;
 };
 
 /**

@@ -43,9 +43,18 @@ export default function BundleDetailPage() {
 
   // Helper para obtener imagen principal del producto
   function getProductImageUrl(product: BundleWithItems["bundle_items"][0]["products"]): string | null {
+    // Primero intentar con la URL firmada
+    if (product?.primary_image_url) return product.primary_image_url;
+    if (product?.image_path) return product.image_path;
+    // Fallback a product_images
     if (!product?.product_images?.length) return null;
     const primary = product.product_images.find(img => img.is_primary);
     return primary?.image_path ?? product.product_images[0]?.image_path ?? null;
+  }
+
+  // Handler para cuando falla la carga de imagen
+  function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {
+    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"/%3E%3Ccircle cx="8.5" cy="8.5" r="1.5"/%3E%3Cpolyline points="21 15 16 10 5 21"/%3E%3C/svg%3E';
   }
 
   useEffect(() => {
@@ -270,7 +279,12 @@ export default function BundleDetailPage() {
           {/* Imagen */}
           <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
             {bundle.image_path ? (
-              <img src={bundle.image_path} alt={bundle.name} className="h-full w-full object-cover" />
+              <img
+                src={bundle.image_path}
+                alt={bundle.name}
+                className="h-full w-full object-cover"
+                onError={handleImageError}
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-slate-400">
                 <Icon icon={Package2} className="h-16 w-16" />
@@ -346,7 +360,12 @@ export default function BundleDetailPage() {
                             {(() => {
                               const imgUrl = getProductImageUrl(product ?? null);
                               return imgUrl ? (
-                                <img src={imgUrl} alt={product?.name ?? 'Producto'} className="h-full w-full object-cover" />
+                                <img
+                                  src={imgUrl}
+                                  alt={product?.name ?? 'Producto'}
+                                  className="h-full w-full object-cover"
+                                  onError={handleImageError}
+                                />
                               ) : (
                                 <div className="flex h-full items-center justify-center text-slate-400">
                                   <Icon icon={Package2} className="h-8 w-8" />
@@ -451,7 +470,12 @@ export default function BundleDetailPage() {
                             <>
                               <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
                                 {imgUrl ? (
-                                  <img src={imgUrl} alt={product.name} className="h-full w-full object-cover" />
+                                  <img
+                                    src={imgUrl}
+                                    alt={product.name}
+                                    className="h-full w-full object-cover"
+                                    onError={handleImageError}
+                                  />
                                 ) : (
                                   <div className="flex h-full items-center justify-center text-slate-400">
                                     <Icon icon={Package2} className="h-8 w-8" />
@@ -506,7 +530,12 @@ export default function BundleDetailPage() {
                 <div className="flex items-center gap-3">
                   <div className="h-20 w-20 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
                     {showingVariantFor.productImage ? (
-                      <img src={showingVariantFor.productImage} alt={showingVariantFor.productName} className="h-full w-full object-cover" />
+                      <img
+                        src={showingVariantFor.productImage}
+                        alt={showingVariantFor.productName}
+                        className="h-full w-full object-cover"
+                        onError={handleImageError}
+                      />
                     ) : (
                       <div className="flex h-full items-center justify-center text-slate-400">
                         <Icon icon={Package2} className="h-10 w-10" />

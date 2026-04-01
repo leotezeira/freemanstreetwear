@@ -5,6 +5,7 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Bundle, BundleWithItems, BundleFormData } from "@/types/bundle";
 import { createSignedBundleImageUrl } from "@/lib/services/bundle-images.service";
+import { createSignedProductImageUrl } from "@/lib/services/product-images.service";
 
 // Query base para obtener bundles con sus items y productos
 const BUNDLE_SELECT = `
@@ -55,16 +56,16 @@ function getProductPrimaryImage(product: any): string | null {
 }
 
 /**
- * Firma las imágenes de un bundle
+ * Firma las imágenes de un bundle (bundle + productos)
  */
 async function signBundleImages(bundle: any): Promise<any> {
   const signedBundle = { ...bundle };
-  
+
   // Firmar imagen principal del bundle
   if (bundle.image_path) {
     signedBundle.image_path = await createSignedBundleImageUrl(bundle.image_path) ?? bundle.image_path;
   }
-  
+
   // Firmar imágenes de bundle_images
   if (bundle.bundle_images?.length) {
     signedBundle.bundle_images = await Promise.all(
@@ -74,18 +75,35 @@ async function signBundleImages(bundle: any): Promise<any> {
       }))
     );
   }
-  
-  // Agregar image_path derivado de product_images para cada producto
+
+  // Firmar imágenes de productos dentro de los items
   if (bundle.bundle_items?.length) {
-    signedBundle.bundle_items = bundle.bundle_items.map((item: any) => ({
-      ...item,
-      products: item.products ? {
-        ...item.products,
-        image_path: getProductPrimaryImage(item.products),
-      } : null,
-    }));
+    signedBundle.bundle_items = await Promise.all(
+      bundle.bundle_items.map(async (item: any) => {
+        const product = item.products;
+        if (!product) return item;
+
+        // Obtener la ruta de la imagen principal del producto
+        const primaryImagePath = getProductPrimaryImage(product);
+        let signedImageUrl = null;
+
+        if (primaryImagePath) {
+          signedImageUrl = await createSignedProductImageUrl(primaryImagePath).catch(() => null);
+        }
+
+        return {
+          ...item,
+          products: {
+            ...product,
+            // Guardar la URL firmada en una propiedad separada
+            primary_image_url: signedImageUrl,
+            image_path: signedImageUrl, // También en image_path para compatibilidad
+          },
+        };
+      })
+    );
   }
-  
+
   return signedBundle;
 }
 
@@ -168,19 +186,30 @@ export async function getBundleBySlug(slug: string): Promise<BundleWithItems | n
         .select("id, size, color, sku, stock, price")
         .eq("product_id", item.product_id);
 
-      return { 
-        ...item, 
+      // Firmar imagen del producto si no se firmó antes
+      let signedProduct = item.products;
+      if (signedProduct && !signedProduct.primary_image_url) {
+        const primaryImagePath = getProductPrimaryImage(signedProduct);
+        if (primaryImagePath) {
+          const signedImageUrl = await createSignedProductImageUrl(primaryImagePath).catch(() => null);
+          signedProduct = {
+            ...signedProduct,
+            primary_image_url: signedImageUrl,
+            image_path: signedImageUrl,
+          };
+        }
+      }
+
+      return {
+        ...item,
         _all_variants: allVariants ?? [],
-        products: item.products ? {
-          ...item.products,
-          image_path: getProductPrimaryImage(item.products),
-        } : null,
+        products: signedProduct,
       };
     })
   );
 
-  return { 
-    ...signed, 
+  return {
+    ...signed,
     bundle_items: bundleItemsWithAllVariants,
   };
 }
