@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
+import { createSignedBundleImageUrl } from "@/lib/services/bundle-images.service";
 
 const BUNDLE_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
 const MAX_BUNDLE_IMAGE_BYTES = Number(process.env.MAX_BUNDLE_IMAGE_BYTES ?? String(4 * 1024 * 1024));
@@ -113,12 +114,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .from("bundle_images")
       .insert(insertPayload)
       .select("id, sort_order, image_path, is_primary");
-    
+
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, uploaded: uploadedPaths.length, images: insertedRows ?? [] });
+    // Firmar URLs de las imágenes insertadas
+    const imagesWithSignedUrls = await Promise.all(
+      (insertedRows ?? []).map(async (img) => ({
+        ...img,
+        signed_url: await createSignedBundleImageUrl(img.image_path).catch(() => null),
+      }))
+    );
+
+    return NextResponse.json({ ok: true, uploaded: uploadedPaths.length, images: imagesWithSignedUrls ?? [] });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message }, { status: 500 });
