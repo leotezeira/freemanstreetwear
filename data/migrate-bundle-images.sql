@@ -1,41 +1,47 @@
--- ============================================
--- MIGRACIÓN: Corregir image_path en bundles
--- ============================================
--- Este script convierte las URLs firmadas guardadas en image_path
--- a filePaths puros para el nuevo sistema de imágenes.
---
--- ANTES: https://xyz.supabase.co/storage/v1/object/sign/bundle-images/bundles/abc123.webp?token=...
--- DESPUÉS: bundles/abc123.webp
--- ============================================
+-- =====================================================
+-- MIGRACIÓN: Corregir paths inválidos en bundle_images
+-- =====================================================
 
--- Actualizar bundles que tienen URLs firmadas guardadas
-UPDATE bundles
-SET image_path = CONCAT(
-  'bundles/',
-  -- Extraer el filename desde la URL firmada
-  SPLIT_PART(
-    SPLIT_PART(image_path, '/bundles/', 2),  -- Obtener todo después de '/bundles/'
-    '?', 1  -- Obtener solo la parte antes del '?' (quitar token)
-  )
-)
-WHERE image_path LIKE '%/bundles/%' 
-  AND image_path NOT LIKE 'bundles/%';
-
--- Verificar resultados
+-- Verificar paths inválidos antes de corregir
 SELECT 
   id,
-  name,
+  bundle_id,
   image_path,
   CASE 
-    WHEN image_path LIKE 'bundles/%.webp' THEN '✓ Correcto'
-    WHEN image_path LIKE '%supabase.co%' THEN '✗ Todavía tiene URL'
-    ELSE '? Otro formato'
-  END as estado
-FROM bundles
+    WHEN image_path LIKE 'http%' THEN '✗ URL completa'
+    WHEN image_path LIKE 'bundles/%' THEN '✓ Path correcto'
+    ELSE '✗ Path inválido'
+  END as status
+FROM bundle_images
 ORDER BY created_at DESC;
 
--- ============================================
--- NOTA: Después de ejecutar este script:
--- 1. Verificar que todas las imágenes tengan el formato 'bundles/xxx.webp'
--- 2. Las imágenes se generarán correctamente con createSignedBundleImageUrl()
--- ============================================
+-- Corregir paths que no empiezan con 'bundles/'
+-- pero solo si parecen ser nombres de archivo (no URLs completas)
+UPDATE bundle_images
+SET image_path = CONCAT('bundles/', bundle_id, '/', image_path)
+WHERE image_path NOT LIKE 'bundles/%'
+  AND image_path NOT LIKE 'http%';
+
+-- Verificar después de corregir
+SELECT 
+  id,
+  bundle_id,
+  image_path,
+  CASE 
+    WHEN image_path LIKE 'bundles/%' THEN '✓ Corregido'
+    ELSE '✗ Sin corregir'
+  END as status
+FROM bundle_images
+ORDER BY created_at DESC;
+
+-- Eliminar registros con URLs completas inválidas (si las hay)
+-- Descomentar solo si es necesario
+-- DELETE FROM bundle_images WHERE image_path LIKE 'http%';
+
+-- Actualizar bundles.image_path si tiene paths inválidos
+UPDATE bundles
+SET image_path = CONCAT('bundles/', id, '/', image_path)
+WHERE image_path IS NOT NULL
+  AND image_path != ''
+  AND image_path NOT LIKE 'bundles/%'
+  AND image_path NOT LIKE 'http%';

@@ -96,8 +96,17 @@ export function BundleImagesUploader({ bundleId, initialImages = [] }: Props) {
 
       const uploadedImages = Array.isArray(body?.images) ? body.images : [];
       setImages((prev) => [...prev, ...uploadedImages]);
+      
+      // Limpiar error después de subida exitosa
+      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al subir");
+      const errorMessage = err instanceof Error ? err.message : "Error al subir";
+      // Incluir nombre del archivo en el error si es posible
+      const fileName = files[0]?.name;
+      setError(fileName ? `${errorMessage}: ${fileName}` : errorMessage);
+      
+      // Limpiar error después de 5 segundos
+      setTimeout(() => setError(null), 5000);
     } finally {
       setUploading(false);
     }

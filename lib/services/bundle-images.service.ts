@@ -4,10 +4,24 @@
 
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-const BUNDLE_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET ?? "bundle-images";
+// Validar variables de entorno
+const BUNDLE_IMAGES_BUCKET = process.env.BUNDLE_IMAGES_BUCKET;
+if (!BUNDLE_IMAGES_BUCKET) {
+  console.warn("[bundle-images.service] BUNDLE_IMAGES_BUCKET no está definida, usando 'bundle-images'");
+}
+
+const BUCKET_NAME = BUNDLE_IMAGES_BUCKET ?? "bundle-images";
 const BUNDLE_IMAGES_SIGNED_URL_TTL_SECONDS = Number(
   process.env.PRODUCT_IMAGES_SIGNED_URL_TTL_SECONDS ?? "3600"
 );
+
+// Log de configuración al iniciar (solo en desarrollo)
+if (process.env.NODE_ENV === "development") {
+  console.log("[bundle-images.service] Configuración:", {
+    bucket: BUCKET_NAME,
+    ttl: BUNDLE_IMAGES_SIGNED_URL_TTL_SECONDS,
+  });
+}
 
 /**
  * Genera URL firmada para imagen de bundle
@@ -21,17 +35,23 @@ export async function createSignedBundleImageUrl(imagePath: string | null): Prom
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
+  
+  // Validar que el path sea relativo correcto
+  if (!imagePath.startsWith('bundles/')) {
+    console.error("[createSignedBundleImageUrl] Path inválido (debe empezar con 'bundles/'):", imagePath);
+    return null;
+  }
 
   try {
     const supabase = getSupabaseAdminClient();
 
     const { data, error } = await supabase.storage
-      .from(BUNDLE_IMAGES_BUCKET)
+      .from(BUCKET_NAME)
       .createSignedUrl(imagePath, BUNDLE_IMAGES_SIGNED_URL_TTL_SECONDS);
 
     if (error) {
       console.error("[createSignedBundleImageUrl] Storage error:", {
-        bucket: BUNDLE_IMAGES_BUCKET,
+        bucket: BUCKET_NAME,
         imagePath,
         error: error.message,
       });
@@ -41,7 +61,7 @@ export async function createSignedBundleImageUrl(imagePath: string | null): Prom
     return data.signedUrl;
   } catch (error) {
     console.error("[createSignedBundleImageUrl] Unexpected error:", {
-      bucket: BUNDLE_IMAGES_BUCKET,
+      bucket: BUCKET_NAME,
       imagePath,
       error: error instanceof Error ? error.message : error,
     });

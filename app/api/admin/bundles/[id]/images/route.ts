@@ -10,6 +10,41 @@ const MAX_IMAGE_WIDTH = Number(process.env.MAX_BUNDLE_IMAGE_WIDTH ?? "1600");
 const WEBP_QUALITY = Number(process.env.BUNDLE_IMAGE_WEBP_QUALITY ?? "82");
 const MAX_IMAGES_PER_BUNDLE = 6;
 
+export async function GET(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: bundleId } = await context.params;
+    const supabase = getSupabaseAdminClient();
+
+    const { data: images, error } = await supabase
+      .from("bundle_images")
+      .select("id, image_path, sort_order, is_primary, created_at")
+      .eq("bundle_id", bundleId)
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error("[GET /api/admin/bundles/[id]/images] Error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Firmar URLs de las imágenes
+    const imagesWithSignedUrls = await Promise.all(
+      (images ?? []).map(async (img) => ({
+        ...img,
+        signed_url: await createSignedBundleImageUrl(img.image_path).catch(() => null),
+      }))
+    );
+
+    return NextResponse.json({ images: imagesWithSignedUrls ?? [] });
+  } catch (error) {
+    console.error("[GET /api/admin/bundles/[id]/images] Unexpected error:", error);
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: bundleId } = await context.params;

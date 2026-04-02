@@ -49,10 +49,8 @@ export default function AdminBundlesPage() {
 
   async function handleToggle(id: string) {
     try {
-      const res = await fetch(`/api/admin/bundles/${id}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ is_active: !bundles.find((b) => b.id === id)?.is_active }),
+      const res = await fetch(`/api/admin/bundles/${id}/toggle`, {
+        method: "PATCH",
       });
 
       if (!res.ok) throw new Error("Error al actualizar");
