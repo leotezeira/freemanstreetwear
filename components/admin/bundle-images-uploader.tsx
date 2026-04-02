@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { ClientImage } from "@/components/ui/client-image";
 import { GripVertical, Image as ImageIcon, Plus, Trash2, Upload } from "lucide-react";
 
 const MAX_IMAGES_PER_BUNDLE = 6;
@@ -241,13 +242,10 @@ export function BundleImagesUploader({ bundleId, initialImages = [] }: Props) {
               onDragEnd={handleDragEnd}
             >
               {imageUrl ? (
-                <img
+                <ClientImage
                   src={imageUrl}
                   alt={`Imagen ${index + 1}`}
                   className="h-full w-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"/%3E%3Ccircle cx="8.5" cy="8.5" r="1.5"/%3E%3Cpolyline points="21 15 16 10 5 21"/%3E%3C/svg%3E';
-                  }}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-slate-400">

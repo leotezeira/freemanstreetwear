@@ -9,6 +9,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
+import { ClientImage } from "@/components/ui/client-image";
 import { X, Upload, Image as ImageIcon, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { BundleWithItems } from "@/types/bundle";
 
@@ -414,7 +415,7 @@ export default function AdminBundleEditPage() {
             <div className="flex items-center gap-4">
               <div className="aspect-square h-32 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
                 {previewImageUrl || formData.image_path ? (
-                  <img
+                  <ClientImage
                     src={previewImageUrl || formData.image_path}
                     alt="Bundle"
                     className="h-full w-full object-cover"
@@ -482,7 +483,7 @@ export default function AdminBundleEditPage() {
                     >
                       <div className="h-12 w-12 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
                         {productImageUrl ? (
-                          <img
+                          <ClientImage
                             src={productImageUrl}
                             alt={product?.name ?? "Producto"}
                             className="h-full w-full object-cover"
@@ -597,7 +598,7 @@ export default function AdminBundleEditPage() {
                                       <>
                                         <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 dark:bg-slate-900">
                                           {imgUrl ? (
-                                            <img
+                                            <ClientImage
                                               src={imgUrl}
                                               alt={product.name}
                                               className="h-full w-full object-cover"
