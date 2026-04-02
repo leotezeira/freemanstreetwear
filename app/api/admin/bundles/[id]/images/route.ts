@@ -127,6 +127,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }))
     );
 
+    // Después de insertar en bundle_images, actualizar image_path en bundles
+    // si el bundle no tiene imagen principal todavía
+    const { data: currentBundle } = await supabase
+      .from("bundles")
+      .select("image_path")
+      .eq("id", bundleId)
+      .single();
+
+    if (!currentBundle?.image_path && uploadedPaths.length > 0) {
+      await supabase
+        .from("bundles")
+        .update({ image_path: uploadedPaths[0] })
+        .eq("id", bundleId);
+    }
+
     return NextResponse.json({ ok: true, uploaded: uploadedPaths.length, images: imagesWithSignedUrls ?? [] });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
