@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/products/product-card";
+import { HeroCarousel } from "@/components/home/hero-carousel";
 import { getSiteContent } from "@/lib/services/content.service";
+import { getActiveBanners, getBannerSettings } from "@/lib/services/hero-banners.service";
 import { getFeaturedProducts, searchProductsByName } from "@/lib/services/products.service";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const content = await getSiteContent();
+  const banners = await getActiveBanners().catch(() => []);
+  const bannerSettings = await getBannerSettings().catch(() => ({ interval_ms: 5000 }));
+
   let featuredProducts: any[] = [];
   let latestProducts: any[] = [];
   let loadError: string | null = null;
@@ -32,26 +37,36 @@ export default async function HomePage() {
 
   return (
     <main>
-      {/* Hero minimalista */}
-      <section className="app-container grid gap-8 py-10 lg:grid-cols-2 lg:items-center">
-        <div className="space-y-5">
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Freeman Streetwear</p>
-          <h1 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">{content.home.heroTitle}</h1>
-          <p className="max-w-xl text-base text-slate-600 dark:text-slate-300 md:text-lg">{content.home.heroSubtitle}</p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link href={content.home.heroCtaHref} className="btn-primary w-full sm:w-auto">
-              {content.home.heroCtaLabel}
-            </Link>
-            <Link href="/shop" className="btn-secondary w-full sm:w-auto">
-              Ver productos
-            </Link>
+      {/* Hero */}
+      {banners.length > 0 ? (
+        <HeroCarousel banners={banners} intervalMs={bannerSettings.interval_ms} />
+      ) : (
+        <section className="app-container grid gap-8 py-10 lg:grid-cols-2 lg:items-center">
+          <div className="space-y-5">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Freeman Streetwear</p>
+            <h1 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">{content.home.heroTitle}</h1>
+            <p className="max-w-xl text-base text-slate-600 dark:text-slate-300 md:text-lg">{content.home.heroSubtitle}</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link href={content.home.heroCtaHref} className="btn-primary w-full sm:w-auto">
+                {content.home.heroCtaLabel}
+              </Link>
+              <Link href="/shop" className="btn-secondary w-full sm:w-auto">
+                Ver productos
+              </Link>
+            </div>
           </div>
-        </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-soft dark:border-slate-800 dark:bg-slate-950">
-          <img src={content.home.heroImageUrl} alt="Hero Freeman Store" className="h-full w-full object-cover" loading="lazy" />
-        </div>
-      </section>
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-soft dark:border-slate-800 dark:bg-slate-950">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={content.home.heroImageUrl}
+              alt="Hero Freeman Store"
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        </section>
+      )}
 
       {/* Destacados */}
       <section className="app-container py-8">
