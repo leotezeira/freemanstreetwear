@@ -6,7 +6,8 @@ import { useToast } from "@/components/ui/toast";
 import { CartItemRow } from "@/components/cart/CartItem";
 import { CartSummary } from "@/components/cart/CartSummary";
 import { useCartStore } from "@/lib/cart/store";
-import { ShoppingCart, X } from "lucide-react";
+import type { CartStoredLineItem } from "@/lib/cart/utils";
+import { Package2, ShoppingCart, X } from "lucide-react";
 
 function SkeletonLine() {
   return (
@@ -19,6 +20,10 @@ function SkeletonLine() {
       </div>
     </div>
   );
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(value);
 }
 
 export function CartDrawer() {
@@ -72,6 +77,31 @@ export function CartDrawer() {
     return `${totalQty} ${plural}`;
   }, [items.length, totalQty]);
 
+  const { standaloneItems, bundleGroups } = useMemo(() => {
+    const bundleMap = new Map<string, CartStoredLineItem[]>();
+    const standalone: CartStoredLineItem[] = [];
+
+    items.forEach((item) => {
+      if (item.bundleGroupId) {
+        const existing = bundleMap.get(item.bundleGroupId);
+        if (existing) {
+          existing.push(item);
+        } else {
+          bundleMap.set(item.bundleGroupId, [item]);
+        }
+      } else {
+        standalone.push(item);
+      }
+    });
+
+    return {
+      standaloneItems: standalone,
+      bundleGroups: Array.from(bundleMap.entries()),
+    };
+  }, [items]);
+
+  const hasVisibleItems = standaloneItems.length > 0 || bundleGroups.length > 0;
+
   return (
     <div
       className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
@@ -110,34 +140,72 @@ export function CartDrawer() {
           </button>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-            {busy ? (
-              <>
-                <SkeletonLine />
-                <SkeletonLine />
-              </>
-            ) : items.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                Tu carrito está vacío.
-              </div>
-            ) : (
-              items.map((item) => (
-                <CartItemRow
-                  key={`${item.productId}-${item.variantId ?? "base"}`}
-                  item={item}
-                  disabled={busy}
-                  onDecrease={() =>
-                    updateQuantity(item.productId, item.quantity - 1, item.variantId)
-                  }
-                  onIncrease={() =>
-                    updateQuantity(item.productId, item.quantity + 1, item.variantId)
-                  }
-                  onRemove={() => removeFromCart(item.productId, item.variantId)}
-                />
-              ))
-            )}
-          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              {busy ? (
+                <>
+                  <SkeletonLine />
+                  <SkeletonLine />
+                </>
+              ) : !hasVisibleItems ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                  Tu carrito está vacío.
+                </div>
+              ) : (
+                <>
+                  {standaloneItems.map((item) => (
+                    <CartItemRow
+                      key={`${item.productId}-${item.variantId ?? "base"}`}
+                      item={item}
+                      disabled={busy}
+                      onDecrease={() =>
+                        updateQuantity(item.productId, item.quantity - 1, item.variantId)
+                      }
+                      onIncrease={() =>
+                        updateQuantity(item.productId, item.quantity + 1, item.variantId)
+                      }
+                      onRemove={() => removeFromCart(item.productId, item.variantId)}
+                    />
+                  ))}
+
+                  {bundleGroups.map(([groupId, bundleItems]) => (
+                    <div
+                      key={groupId}
+                      className="space-y-2 rounded-2xl border border-indigo-200/60 bg-indigo-50/20 p-3 dark:border-indigo-800/60 dark:bg-indigo-950/30"
+                    >
+                      <div className="flex items-center justify-between text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                        <span className="flex items-center gap-1 text-xs font-semibold">
+                          <Icon icon={Package2} size={14} />
+                          Bundle ({bundleItems.length} productos)
+                        </span>
+                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                          {formatMoney(
+                            bundleItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {bundleItems.map((item) => (
+                          <CartItemRow
+                            key={`${item.productId}-${item.variantId ?? "base"}`}
+                            item={item}
+                            disabled={busy}
+                            onDecrease={() =>
+                              updateQuantity(item.productId, item.quantity - 1, item.variantId)
+                            }
+                            onIncrease={() =>
+                              updateQuantity(item.productId, item.quantity + 1, item.variantId)
+                            }
+                            onRemove={() => removeFromCart(item.productId, item.variantId)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
 
           <div className="flex-none">
             <CartSummary />

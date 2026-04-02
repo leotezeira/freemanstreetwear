@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git add *)",
+      "Bash(git push)"
     ]
   },
   "$version": 3

@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/cart/store";
+import type { CartStoredLineItem } from "@/lib/cart/utils";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
-import { LoaderCircle, Truck, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, LoaderCircle, Package2, Truck } from "lucide-react";
 import type { PaymentMethod } from "@/lib/services/payment-methods.service";
 import type { ShippingMethod } from "@/lib/services/shipping-methods.service";
 import provinciasData from "@/data/provincias.json";
@@ -51,6 +52,28 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
   const router = useRouter();
   const toast = useToast();
   const cartItems = useCartStore((s) => s.items);
+  const { standaloneItems, bundleGroups } = useMemo(() => {
+    const bundleMap = new Map<string, CartStoredLineItem[]>();
+    const standalone: CartStoredLineItem[] = [];
+
+    cartItems.forEach((item) => {
+      if (item.bundleGroupId) {
+        const existing = bundleMap.get(item.bundleGroupId);
+        if (existing) {
+          existing.push(item);
+        } else {
+          bundleMap.set(item.bundleGroupId, [item]);
+        }
+      } else {
+        standalone.push(item);
+      }
+    });
+
+    return {
+      standaloneItems: standalone,
+      bundleGroups: Array.from(bundleMap.entries()),
+    };
+  }, [cartItems]);
   const cartSubtotal = useCartStore((s) => s.totals.subtotal);
   const validateCart = useCartStore((s) => s.validateAgainstSupabase);
   const setShippingEstimate = useCartStore((s) => s.setShippingEstimate);
@@ -1021,7 +1044,7 @@ Visitanos en freemanstreetwear.com
           </div>
 
           <div className="space-y-2">
-            {cartItems.map((it) => (
+            {standaloneItems.map((it) => (
               <div
                 key={`${it.productId}-${it.variantId ?? "base"}`}
                 className="flex items-center justify-between text-sm"
@@ -1032,6 +1055,35 @@ Visitanos en freemanstreetwear.com
                 <span className="text-slate-900">
                   {formatMoney(it.unitPrice * it.quantity)}
                 </span>
+              </div>
+            ))}
+
+            {bundleGroups.map(([groupId, bundleItems]) => (
+              <div key={groupId} className="space-y-1 border-t border-slate-200 pt-2 text-sm text-slate-600 dark:border-slate-800">
+                <div className="flex items-center justify-between text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                  <span className="flex items-center gap-1 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                    <Icon icon={Package2} size={14} />
+                    Bundle ({bundleItems.length} productos)
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                    {formatMoney(
+                      bundleItems.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0)
+                    )}
+                  </span>
+                </div>
+                {bundleItems.map((it) => (
+                  <div
+                    key={`${it.productId}-${it.variantId ?? "base"}`}
+                    className="ml-4 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400"
+                  >
+                    <span>
+                      {it.name} × {it.quantity}
+                    </span>
+                    <span className="text-slate-900 dark:text-slate-50">
+                      {formatMoney(it.unitPrice * it.quantity)}
+                    </span>
+                  </div>
+                ))}
               </div>
             ))}
             {cartItems.length === 0 ? (

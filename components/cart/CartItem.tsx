@@ -2,7 +2,7 @@
 
 import { memo, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
-import { AlertTriangle, BadgePercent, Minus, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, BadgePercent, Minus, Package2, Plus, Trash2 } from "lucide-react";
 import type { CartStoredLineItem } from "@/lib/cart/utils";
 
 function formatMoney(value: number) {
@@ -38,6 +38,7 @@ export const CartItemRow = memo(function CartItemRow({
   const overStock = typeof stock === "number" && item.quantity > stock;
   const lowStock = typeof stock === "number" && stock > 0 && stock <= 3;
   const inactive = item.isActive === false;
+  const isBundleItem = Boolean(item.bundleId && item.bundleGroupId);
 
   return (
     <article className="flex gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
@@ -61,6 +62,12 @@ export const CartItemRow = memo(function CartItemRow({
             ) : null}
 
             <div className="mt-1 flex flex-wrap items-center gap-2">
+              {isBundleItem && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                  <Icon icon={Package2} size={12} />
+                  Bundle
+                </span>
+              )}
               <p className="text-sm font-bold text-slate-900 dark:text-slate-50">{formatMoney(unitPrice)}</p>
               {hasOffer ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
