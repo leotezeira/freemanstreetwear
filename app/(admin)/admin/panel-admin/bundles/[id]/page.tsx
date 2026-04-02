@@ -44,10 +44,6 @@ function getProductImageUrl(product: Product): string | null {
   return primary?.image_path ?? product.product_images[0]?.image_path ?? null;
 }
 
-function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {
-  e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"/%3E%3Ccircle cx="8.5" cy="8.5" r="1.5"/%3E%3Cpolyline points="21 15 16 10 5 21"/%3E%3C/svg%3E';
-}
-
 export default function AdminBundleEditPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -57,6 +53,7 @@ export default function AdminBundleEditPage() {
   const [bundleId, setBundleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -119,6 +116,10 @@ export default function AdminBundleEditPage() {
       if (!res.ok) throw new Error(body.error ?? "Error al cargar");
 
       const bundle: BundleWithItems = body.bundle;
+      
+      // Usar la imagen principal del bundle (ya viene firmada desde la API)
+      const imageUrl = bundle.image_path || "";
+      
       setFormData({
         name: bundle.name,
         description: bundle.description ?? "",
@@ -126,9 +127,17 @@ export default function AdminBundleEditPage() {
         price: String(bundle.price),
         compare_at_price: bundle.compare_at_price ? String(bundle.compare_at_price) : "",
         is_active: bundle.is_active,
-        image_path: bundle.image_path ?? "",
+        image_path: imageUrl,
         required_quantity: String(bundle.required_quantity),
       });
+      
+      // Si la imagen ya es URL firmada (viene de la API), usar para preview
+      if (imageUrl && imageUrl.startsWith('http')) {
+        setPreviewImageUrl(imageUrl);
+      } else {
+        setPreviewImageUrl(null);
+      }
+      
       setItems(
         bundle.bundle_items.map((item) => ({
           product_id: item.product_id,
@@ -173,6 +182,9 @@ export default function AdminBundleEditPage() {
 
       const uploadedImages = result.images ?? [];
       if (uploadedImages.length > 0) {
+        // Guardar URL firmada para la preview
+        setPreviewImageUrl(uploadedImages[0].signed_url);
+        // Guardar path relativo para el guardado del bundle
         setFormData((p) => ({ ...p, image_path: uploadedImages[0].image_path }));
       }
 
@@ -401,12 +413,11 @@ export default function AdminBundleEditPage() {
 
             <div className="flex items-center gap-4">
               <div className="aspect-square h-32 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
-                {formData.image_path ? (
+                {previewImageUrl || formData.image_path ? (
                   <img
-                    src={formData.image_path}
+                    src={previewImageUrl || formData.image_path}
                     alt="Bundle"
                     className="h-full w-full object-cover"
-                    onError={handleImageError}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-slate-400">
