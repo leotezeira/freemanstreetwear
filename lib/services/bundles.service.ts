@@ -63,16 +63,26 @@ async function signBundleImages(bundle: any): Promise<any> {
 
   // Firmar imagen principal del bundle
   if (bundle.image_path) {
-    signedBundle.image_path = await createSignedBundleImageUrl(bundle.image_path) ?? bundle.image_path;
+    const signedUrl = await createSignedBundleImageUrl(bundle.image_path);
+    signedBundle.image_path = signedUrl ?? bundle.image_path;
+    if (!signedUrl) {
+      console.warn("[signBundleImages] Failed to sign bundle image, using raw path:", bundle.image_path);
+    }
   }
 
   // Firmar imágenes de bundle_images
   if (bundle.bundle_images?.length) {
     signedBundle.bundle_images = await Promise.all(
-      bundle.bundle_images.map(async (img: any) => ({
-        ...img,
-        image_path: await createSignedBundleImageUrl(img.image_path) ?? img.image_path,
-      }))
+      bundle.bundle_images.map(async (img: any) => {
+        const signedUrl = await createSignedBundleImageUrl(img.image_path);
+        if (!signedUrl) {
+          console.warn("[signBundleImages] Failed to sign bundle_image, using raw path:", img.image_path);
+        }
+        return {
+          ...img,
+          image_path: signedUrl ?? img.image_path,
+        };
+      })
     );
   }
 
@@ -80,26 +90,34 @@ async function signBundleImages(bundle: any): Promise<any> {
   if (bundle.bundle_items?.length) {
     signedBundle.bundle_items = await Promise.all(
       bundle.bundle_items.map(async (item: any) => {
-        const product = item.products;
-        if (!product) return item;
+        try {
+          const product = item.products;
+          if (!product) return item;
 
-        // Obtener la ruta de la imagen principal del producto
-        const primaryImagePath = getProductPrimaryImage(product);
-        let signedImageUrl = null;
+          // Obtener la ruta de la imagen principal del producto
+          const primaryImagePath = getProductPrimaryImage(product);
+          let signedImageUrl = null;
 
-        if (primaryImagePath) {
-          signedImageUrl = await createSignedProductImageUrl(primaryImagePath).catch(() => null);
+          if (primaryImagePath) {
+            signedImageUrl = await createSignedProductImageUrl(primaryImagePath).catch((err) => {
+              console.warn("[signBundleImages] Failed to sign product image:", primaryImagePath, err.message);
+              return null;
+            });
+          }
+
+          return {
+            ...item,
+            products: {
+              ...product,
+              // Guardar la URL firmada en una propiedad separada
+              primary_image_url: signedImageUrl,
+              image_path: signedImageUrl, // También en image_path para compatibilidad
+            },
+          };
+        } catch (error) {
+          console.error("[signBundleImages] Error processing bundle_item:", error);
+          return item;
         }
-
-        return {
-          ...item,
-          products: {
-            ...product,
-            // Guardar la URL firmada en una propiedad separada
-            primary_image_url: signedImageUrl,
-            image_path: signedImageUrl, // También en image_path para compatibilidad
-          },
-        };
       })
     );
   }

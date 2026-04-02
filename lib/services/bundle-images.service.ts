@@ -17,18 +17,36 @@ const BUNDLE_IMAGES_SIGNED_URL_TTL_SECONDS = Number(
 export async function createSignedBundleImageUrl(imagePath: string | null): Promise<string | null> {
   if (!imagePath) return null;
   
-  const supabase = getSupabaseAdminClient();
-
-  const { data, error } = await supabase.storage
-    .from(BUNDLE_IMAGES_BUCKET)
-    .createSignedUrl(imagePath, BUNDLE_IMAGES_SIGNED_URL_TTL_SECONDS);
-
-  if (error) {
-    console.error("[createSignedBundleImageUrl] Error:", error);
-    return null;
+  // Si ya es URL firmada (empieza con http), retornarla directamente
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
   }
 
-  return data.signedUrl;
+  try {
+    const supabase = getSupabaseAdminClient();
+
+    const { data, error } = await supabase.storage
+      .from(BUNDLE_IMAGES_BUCKET)
+      .createSignedUrl(imagePath, BUNDLE_IMAGES_SIGNED_URL_TTL_SECONDS);
+
+    if (error) {
+      console.error("[createSignedBundleImageUrl] Storage error:", {
+        bucket: BUNDLE_IMAGES_BUCKET,
+        imagePath,
+        error: error.message,
+      });
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error("[createSignedBundleImageUrl] Unexpected error:", {
+      bucket: BUNDLE_IMAGES_BUCKET,
+      imagePath,
+      error: error instanceof Error ? error.message : error,
+    });
+    return null;
+  }
 }
 
 /**
