@@ -5,9 +5,9 @@ export const runtime = "nodejs";
 
 const BUCKET = process.env.PRODUCT_IMAGES_BUCKET ?? "product-images";
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = params.id;
+    const { id } = await params;
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body) return NextResponse.json({ error: "Body invalido" }, { status: 400 });
 
@@ -29,9 +29,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = params.id;
+    const { id } = await params;
     const supabase = getSupabaseAdminClient();
 
     const { data } = await supabase.from("hero_banners").select("image_path").eq("id", id).single();
