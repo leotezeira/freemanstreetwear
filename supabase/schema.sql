@@ -407,3 +407,71 @@ create policy "Admins full access app_users" on public.app_users
 create index if not exists idx_app_users_email on public.app_users(email);
 create index if not exists idx_app_users_created_at on public.app_users(created_at desc);
 
+-- Product ratings table
+create table if not exists public.product_ratings (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  app_user_id uuid not null references public.app_users(id) on delete cascade,
+  rating integer not null check (rating >= 1 and rating <= 5),
+  created_at timestamptz not null default now(),
+  unique (product_id, app_user_id)
+);
+
+alter table public.product_ratings enable row level security;
+
+create policy "Anyone can read product ratings" on public.product_ratings
+  for select
+  to anon, authenticated
+  using (true);
+
+create policy "Users can rate products" on public.product_ratings
+  for insert
+  to authenticated
+  with check (
+    exists (select 1 from public.app_users where id = app_user_id and auth_id = auth.uid())
+  );
+
+create policy "Users can update own ratings" on public.product_ratings
+  for update
+  to authenticated
+  using (
+    exists (select 1 from public.app_users where id = app_user_id and auth_id = auth.uid())
+  );
+
+create index if not exists idx_product_ratings_product_id on public.product_ratings(product_id);
+create index if not exists idx_product_ratings_user_id on public.product_ratings(app_user_id);
+
+-- Bundle ratings table
+create table if not exists public.bundle_ratings (
+  id uuid primary key default gen_random_uuid(),
+  bundle_id uuid not null references public.bundles(id) on delete cascade,
+  app_user_id uuid not null references public.app_users(id) on delete cascade,
+  rating integer not null check (rating >= 1 and rating <= 5),
+  created_at timestamptz not null default now(),
+  unique (bundle_id, app_user_id)
+);
+
+alter table public.bundle_ratings enable row level security;
+
+create policy "Anyone can read bundle ratings" on public.bundle_ratings
+  for select
+  to anon, authenticated
+  using (true);
+
+create policy "Users can rate bundles" on public.bundle_ratings
+  for insert
+  to authenticated
+  with check (
+    exists (select 1 from public.app_users where id = app_user_id and auth_id = auth.uid())
+  );
+
+create policy "Users can update own ratings" on public.bundle_ratings
+  for update
+  to authenticated
+  using (
+    exists (select 1 from public.app_users where id = app_user_id and auth_id = auth.uid())
+  );
+
+create index if not exists idx_bundle_ratings_bundle_id on public.bundle_ratings(bundle_id);
+create index if not exists idx_bundle_ratings_user_id on public.bundle_ratings(app_user_id);
+

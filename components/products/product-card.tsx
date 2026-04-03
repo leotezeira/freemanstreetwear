@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
 import { ShoppingCart } from "lucide-react";
 import { INSTALLMENT_PLANS, TRANSFER_DISCOUNT_PERCENT, BADGE_RULES } from "@/lib/config/pricing";
+import { StarRating } from "@/components/ratings/star-rating";
 
 type ProductCardProps = {
   product: Product;
@@ -221,6 +222,11 @@ export function ProductCard({ product }: ProductCardProps) {
             <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
               en {installment.quantity} cuotas sin interés de <span className="font-bold">{formatPrice(installment.amount)}</span>
             </p>
+          </div>
+
+          {/* Star Rating */}
+          <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+            <StarRating productId={product.id} />
           </div>
 
           {/* Urgencia: unidades disponibles */}

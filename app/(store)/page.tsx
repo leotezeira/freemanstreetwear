@@ -5,6 +5,7 @@ import { getSiteContent } from "@/lib/services/content.service";
 import { getActiveBanners, getBannerSettings } from "@/lib/services/hero-banners.service";
 import { getActiveBundles } from "@/lib/services/bundles.service";
 import { getFeaturedProducts, searchProductsByName } from "@/lib/services/products.service";
+import { StarRating } from "@/components/ratings/star-rating";
 
 export const dynamic = "force-dynamic";
 
@@ -177,6 +178,10 @@ export default async function HomePage() {
                   </div>
 
                   <p className="text-xs text-slate-500">{bundle.bundle_items.length} productos</p>
+
+                  <div className="border-t border-slate-200 pt-2 dark:border-slate-700" onClick={(e) => e.preventDefault()}>
+                    <StarRating bundleId={bundle.id} />
+                  </div>
                 </Link>
               );
             })}
