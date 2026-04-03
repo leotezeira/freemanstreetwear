@@ -86,8 +86,8 @@ export function ProductCard({ product }: ProductCardProps) {
         }
       }}
     >
-      <div className="relative block overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 dark:bg-slate-950">
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
+      <div className="relative block overflow-hidden rounded-2xl bg-transparent transition hover:-translate-y-0.5">
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-transparent">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageUrl ?? "/product-placeholder.svg"}
