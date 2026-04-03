@@ -36,6 +36,7 @@ export default function AdminBannersPage() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     title: "",
     subtitle: "",
@@ -121,6 +122,7 @@ export default function AdminBannersPage() {
       });
     } finally {
       setSaving(false);
+      setSelectedImageFile(null);
       if (fileRef.current) fileRef.current.value = "";
     }
   }
@@ -130,25 +132,27 @@ export default function AdminBannersPage() {
 
     setSaving(true);
     try {
-      const payload = {
-        title: form.title || null,
-        subtitle: form.subtitle || null,
-        cta_label: form.cta_label || null,
-        cta_href: form.cta_href || null,
-        title_font: form.title_font || null,
-        subtitle_font: form.subtitle_font || null,
-        text_color: form.text_color || null,
-        cta_text_color: form.cta_text_color || null,
-        cta_bg_color: form.cta_bg_color || null,
-        zoom: form.zoom,
-        overlay_top: form.overlay_top,
-        overlay_bottom: form.overlay_bottom,
-      };
+      const fd = new FormData();
+      fd.set("title", form.title || "");
+      fd.set("subtitle", form.subtitle || "");
+      fd.set("cta_label", form.cta_label || "");
+      fd.set("cta_href", form.cta_href || "");
+      fd.set("title_font", form.title_font || "");
+      fd.set("subtitle_font", form.subtitle_font || "");
+      fd.set("text_color", form.text_color || "");
+      fd.set("cta_text_color", form.cta_text_color || "");
+      fd.set("cta_bg_color", form.cta_bg_color || "");
+      fd.set("zoom", String(form.zoom));
+      fd.set("overlay_top", String(form.overlay_top));
+      fd.set("overlay_bottom", String(form.overlay_bottom));
+
+      if (selectedImageFile) {
+        fd.set("image", selectedImageFile);
+      }
 
       const res = await fetch(`/api/admin/hero-banners/${editingId}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        body: fd,
       });
       const body = (await res.json().catch(() => null)) as any;
       if (!res.ok) throw new Error(body?.error ?? "Error");
@@ -179,6 +183,8 @@ export default function AdminBannersPage() {
       });
     } finally {
       setSaving(false);
+      setSelectedImageFile(null);
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -282,7 +288,7 @@ export default function AdminBannersPage() {
 
       {showForm ? (
         <div className="card-base space-y-4">
-          <h2 className="text-lg font-bold">Nuevo Banner</h2>
+          <h2 className="text-lg font-bold">{editingId ? "Editar Banner" : "Nuevo Banner"}</h2>
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium">Titulo</label>
@@ -428,20 +434,35 @@ export default function AdminBannersPage() {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+
                 if (editingId) {
+                  setSelectedImageFile(file);
                   toast.push({
-                    variant: "error",
-                    title: "Modo edición",
-                    description: "Para editar con nueva imagen, guarda cambios sin archivo y luego añade uno nuevo si lo deseas",
+                    variant: "success",
+                    title: "Imagen seleccionada",
+                    description: "La imagen será subida cuando guardes los cambios",
                   });
                   return;
                 }
+
                 void handleCreate(file);
               }}
               className="hidden"
             />
+            {editingId && selectedImageFile ? (
+              <p className="text-sm text-slate-600">Imagen seleccionada: {selectedImageFile.name}</p>
+            ) : null}
+
             {editingId ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={saving}
+                  className="btn-secondary"
+                >
+                  Cambiar imagen
+                </button>
                 <button
                   type="button"
                   onClick={handleUpdate}
