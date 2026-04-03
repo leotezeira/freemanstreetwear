@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSiteMetrics } from "@/lib/services/metrics.service";
 
 function startOfToday() {
   const d = new Date();
@@ -50,6 +51,8 @@ export default async function AdminPanelHomePage() {
   const pendingOrders = (orders ?? []).filter((o) => String(o.payment_status ?? "").toLowerCase() !== "approved").length;
   const lowStock = (products ?? []).filter((p) => Number(p.stock ?? 0) <= 5 && Boolean(p.is_active)).slice(0, 5);
 
+  const metrics = await getSiteMetrics();
+
   return (
     <section className="space-y-6">
       <div>
@@ -76,6 +79,10 @@ export default async function AdminPanelHomePage() {
           <p className={pendingOrders ? "mt-2 text-2xl font-black text-red-600 dark:text-red-400" : "mt-2 text-2xl font-black"}>
             {pendingOrders}
           </p>
+        </div>
+        <div className="card-base">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Visitas web</p>
+          <p className="mt-2 text-2xl font-black">{metrics.pageViews.toLocaleString("es-AR")}</p>
         </div>
       </div>
 
