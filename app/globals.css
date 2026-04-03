@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,6 +11,7 @@
 
   body {
     @apply bg-white text-slate-900 antialiased;
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   .dark body {
@@ -47,5 +50,107 @@
   .card-base {
     @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-soft;
     @apply dark:border-slate-800 dark:bg-slate-900;
+  }
+
+  .hero-premium {
+    position: relative;
+    isolation: isolate;
+    min-height: clamp(520px, 90vh, 780px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #f8f7f4;
+  }
+
+  .hero-bg-layer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .hero-bg-image {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    animation: hero-zoom 22s ease-in-out infinite alternate;
+    transform-origin: center;
+  }
+
+  .hero-overlay-premium {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(248, 246, 240, 0.95) 0%,
+      rgba(248, 246, 240, 0.6) 15%,
+      rgba(248, 246, 240, 0) 35%,
+      rgba(248, 246, 240, 0) 65%,
+      rgba(248, 246, 240, 0.6) 85%,
+      rgba(248, 246, 240, 0.95) 100%
+    );
+    backdrop-filter: blur(2px);
+    pointer-events: none;
+  }
+
+  .hero-content-premium {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    max-width: 960px;
+    padding: clamp(1.5rem, 3vw, 3rem);
+    color: #0f172a;
+  }
+
+  .hero-title {
+    font-family: "Playfair Display", serif;
+    font-weight: 500;
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-title em,
+  .hero-title span {
+    font-style: italic;
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1rem, 1.4vw, 1.15rem);
+    line-height: 1.6;
+    color: #334155;
+    opacity: 0.88;
+    margin-top: 1.2rem;
+  }
+
+  .hero-cta {
+    margin-top: 1.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.95rem 1.9rem;
+    border-radius: 999px;
+    border: none;
+    background: #0f172a;
+    color: #f8fafc;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    box-shadow: 0 15px 45px rgba(15, 23, 42, 0.2);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  }
+
+  .hero-cta:hover {
+    transform: translateY(-2px);
+    background: #020617;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.26);
+  }
+
+  @keyframes hero-zoom {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.08);
+    }
   }
 }
