@@ -86,7 +86,7 @@
     position: absolute;
     inset: 0;
     background: var(--hero-overlay, transparent);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(0px);
     pointer-events: none;
   }
 
