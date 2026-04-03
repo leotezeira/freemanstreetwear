@@ -15,6 +15,11 @@ type Banner = {
   image_path: string;
   sort_order: number;
   is_active: boolean;
+  title_font: string | null;
+  subtitle_font: string | null;
+  text_color: string | null;
+  cta_text_color: string | null;
+  cta_bg_color: string | null;
   signed_url?: string | null;
 };
 
@@ -27,11 +32,17 @@ export default function AdminBannersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     subtitle: "",
     cta_label: "",
     cta_href: "",
+    title_font: "Playfair Display",
+    subtitle_font: "Inter",
+    text_color: "#0f172a",
+    cta_text_color: "#f8fafc",
+    cta_bg_color: "#0f172a",
   });
 
   useEffect(() => {
@@ -65,13 +76,29 @@ export default function AdminBannersPage() {
       fd.set("subtitle", form.subtitle);
       fd.set("cta_label", form.cta_label);
       fd.set("cta_href", form.cta_href);
+      fd.set("title_font", form.title_font);
+      fd.set("subtitle_font", form.subtitle_font);
+      fd.set("text_color", form.text_color);
+      fd.set("cta_text_color", form.cta_text_color);
+      fd.set("cta_bg_color", form.cta_bg_color);
 
       const res = await fetch("/api/admin/hero-banners", { method: "POST", body: fd });
       const body = (await res.json().catch(() => null)) as any;
       if (!res.ok) throw new Error(body?.error ?? "Error");
 
       toast.push({ variant: "success", title: "Banner creado" });
-      setForm({ title: "", subtitle: "", cta_label: "", cta_href: "" });
+      setForm({
+        title: "",
+        subtitle: "",
+        cta_label: "",
+        cta_href: "",
+        title_font: "Playfair Display",
+        subtitle_font: "Inter",
+        text_color: "#0f172a",
+        cta_text_color: "#f8fafc",
+        cta_bg_color: "#0f172a",
+      });
+      setEditingId(null);
       setShowForm(false);
       await load();
     } catch (e) {
@@ -83,6 +110,57 @@ export default function AdminBannersPage() {
     } finally {
       setSaving(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function handleUpdate() {
+    if (!editingId) return;
+
+    setSaving(true);
+    try {
+      const payload = {
+        title: form.title || null,
+        subtitle: form.subtitle || null,
+        cta_label: form.cta_label || null,
+        cta_href: form.cta_href || null,
+        title_font: form.title_font || null,
+        subtitle_font: form.subtitle_font || null,
+        text_color: form.text_color || null,
+        cta_text_color: form.cta_text_color || null,
+        cta_bg_color: form.cta_bg_color || null,
+      };
+
+      const res = await fetch(`/api/admin/hero-banners/${editingId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(body?.error ?? "Error");
+
+      toast.push({ variant: "success", title: "Banner actualizado" });
+      setForm({
+        title: "",
+        subtitle: "",
+        cta_label: "",
+        cta_href: "",
+        title_font: "Playfair Display",
+        subtitle_font: "Inter",
+        text_color: "#0f172a",
+        cta_text_color: "#f8fafc",
+        cta_bg_color: "#0f172a",
+      });
+      setEditingId(null);
+      setShowForm(false);
+      await load();
+    } catch (e) {
+      toast.push({
+        variant: "error",
+        title: "Error",
+        description: e instanceof Error ? e.message : "No se pudo actualizar el banner",
+      });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -110,6 +188,22 @@ export default function AdminBannersPage() {
     } catch {
       toast.push({ variant: "error", title: "Error al eliminar" });
     }
+  }
+
+  function handleEdit(banner: Banner) {
+    setEditingId(banner.id);
+    setShowForm(true);
+    setForm({
+      title: banner.title ?? "",
+      subtitle: banner.subtitle ?? "",
+      cta_label: banner.cta_label ?? "",
+      cta_href: banner.cta_href ?? "",
+      title_font: banner.title_font ?? "Playfair Display",
+      subtitle_font: banner.subtitle_font ?? "Inter",
+      text_color: banner.text_color ?? "#0f172a",
+      cta_text_color: banner.cta_text_color ?? "#f8fafc",
+      cta_bg_color: banner.cta_bg_color ?? "#0f172a",
+    });
   }
 
   async function handleSaveSettings() {
@@ -190,6 +284,61 @@ export default function AdminBannersPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium">Fuente título</label>
+              <select
+                value={form.title_font}
+                onChange={(e) => setForm((p) => ({ ...p, title_font: e.target.value }))}
+                className="input-base"
+              >
+                <option>Playfair Display</option>
+                <option>Inter</option>
+                <option>Roboto</option>
+                <option>Montserrat</option>
+                <option>Poppins</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Fuente subtítulo</label>
+              <select
+                value={form.subtitle_font}
+                onChange={(e) => setForm((p) => ({ ...p, subtitle_font: e.target.value }))}
+                className="input-base"
+              >
+                <option>Inter</option>
+                <option>Playfair Display</option>
+                <option>Roboto</option>
+                <option>Montserrat</option>
+                <option>Poppins</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Color texto</label>
+              <input
+                type="color"
+                value={form.text_color}
+                onChange={(e) => setForm((p) => ({ ...p, text_color: e.target.value }))}
+                className="w-full rounded-xl border border-slate-300 p-1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Color CTA texto</label>
+              <input
+                type="color"
+                value={form.cta_text_color}
+                onChange={(e) => setForm((p) => ({ ...p, cta_text_color: e.target.value }))}
+                className="w-full rounded-xl border border-slate-300 p-1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Color CTA fondo</label>
+              <input
+                type="color"
+                value={form.cta_bg_color}
+                onChange={(e) => setForm((p) => ({ ...p, cta_bg_color: e.target.value }))}
+                className="w-full rounded-xl border border-slate-300 p-1"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium">Texto del boton</label>
               <input
                 type="text"
@@ -221,19 +370,62 @@ export default function AdminBannersPage() {
               accept="image/jpeg,image/png,image/webp"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) void handleCreate(file);
+                if (!file) return;
+                if (editingId) {
+                  toast.push({
+                    variant: "error",
+                    title: "Modo edición",
+                    description: "Para editar con nueva imagen, guarda cambios sin archivo y luego añade uno nuevo si lo deseas",
+                  });
+                  return;
+                }
+                void handleCreate(file);
               }}
               className="hidden"
             />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={saving}
-              className="btn-secondary flex items-center gap-2 disabled:opacity-50"
-            >
-              <Icon icon={Upload} className="h-4 w-4" />
-              {saving ? "Subiendo..." : "Seleccionar imagen y crear banner"}
-            </button>
+            {editingId ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUpdate}
+                  disabled={saving}
+                  className="btn-primary"
+                >
+                  {saving ? "Guardando..." : "Guardar cambios"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setShowForm(false);
+                    setForm({
+                      title: "",
+                      subtitle: "",
+                      cta_label: "",
+                      cta_href: "",
+                      title_font: "Playfair Display",
+                      subtitle_font: "Inter",
+                      text_color: "#0f172a",
+                      cta_text_color: "#f8fafc",
+                      cta_bg_color: "#0f172a",
+                    });
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancelar edición
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={saving}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+              >
+                <Icon icon={Upload} className="h-4 w-4" />
+                {saving ? "Subiendo..." : "Seleccionar imagen y crear banner"}
+              </button>
+            )}
           </div>
         </div>
       ) : null}
@@ -281,6 +473,14 @@ export default function AdminBannersPage() {
               </span>
 
               <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => void handleEdit(banner)}
+                  className="rounded p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  title="Editar"
+                >
+                  <Icon icon={Settings} className="h-4 w-4 text-slate-500" />
+                </button>
                 <button
                   type="button"
                   onClick={() => void handleToggle(banner.id, banner.is_active)}

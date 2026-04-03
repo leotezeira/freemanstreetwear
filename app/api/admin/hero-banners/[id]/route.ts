@@ -18,6 +18,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if ("subtitle" in body) updates.subtitle = (body.subtitle as string | null) ?? null;
     if ("cta_label" in body) updates.cta_label = (body.cta_label as string | null) ?? null;
     if ("cta_href" in body) updates.cta_href = (body.cta_href as string | null) ?? null;
+    if ("title_font" in body) updates.title_font = (body.title_font as string | null) ?? null;
+    if ("subtitle_font" in body) updates.subtitle_font = (body.subtitle_font as string | null) ?? null;
+    if ("text_color" in body) updates.text_color = (body.text_color as string | null) ?? null;
+    if ("cta_text_color" in body) updates.cta_text_color = (body.cta_text_color as string | null) ?? null;
+    if ("cta_bg_color" in body) updates.cta_bg_color = (body.cta_bg_color as string | null) ?? null;
 
     const supabase = getSupabaseAdminClient();
     const { error } = await supabase.from("hero_banners").update(updates).eq("id", id);

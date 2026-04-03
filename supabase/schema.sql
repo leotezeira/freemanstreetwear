@@ -350,3 +350,20 @@ values
     '{"heroTitle":"Streetwear premium para todos los días","heroSubtitle":"Colecciones minimalistas con identidad urbana y entrega rápida.","heroCtaLabel":"Comprar ahora","heroCtaHref":"/shop","heroImageUrl":"https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80","promoTitle":"Envío fijo a todo el país","promoSubtitle":"Checkout simple y pago seguro con MercadoPago.","newsletterTitle":"Recibí novedades","newsletterSubtitle":"Suscribite para enterarte de lanzamientos y reposiciones."}'::jsonb
   )
 on conflict (key) do nothing;
+
+-- Hero banners style fields (opcional, no interfiere si no existe la tabla)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'hero_banners') THEN
+    ALTER TABLE public.hero_banners
+      ADD COLUMN IF NOT EXISTS title_font text,
+      ADD COLUMN IF NOT EXISTS subtitle_font text,
+      ADD COLUMN IF NOT EXISTS text_color text,
+      ADD COLUMN IF NOT EXISTS cta_text_color text,
+      ADD COLUMN IF NOT EXISTS cta_bg_color text;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  -- Tabla no existe o ya tiene las columnas.
+  NULL;
+END$$;
+

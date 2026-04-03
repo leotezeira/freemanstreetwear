@@ -55,12 +55,17 @@
   .hero-premium {
     position: relative;
     isolation: isolate;
-    min-height: clamp(520px, 90vh, 780px);
+    width: 100%;
+    max-width: 1920px;
+    aspect-ratio: 1920 / 600;
+    max-height: 600px;
+    min-height: 300px;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
     background: #f8f7f4;
+    margin-inline: auto;
   }
 
   .hero-bg-layer {
@@ -69,9 +74,10 @@
   }
 
   .hero-bg-image {
-    height: 100%;
     width: 100%;
+    height: 100%;
     object-fit: cover;
+    object-position: center;
     animation: hero-zoom 22s ease-in-out infinite alternate;
     transform-origin: center;
   }

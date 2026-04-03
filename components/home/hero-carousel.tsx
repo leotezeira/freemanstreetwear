@@ -52,11 +52,39 @@ export function HeroCarousel({ banners, intervalMs }: Props) {
       </div>
 
       <div className="hero-content-premium transition-opacity duration-300" style={{ opacity: fading ? 0 : 1 }}>
-        {banner.title ? <h1 className="hero-title">{banner.title}</h1> : null}
-        {banner.subtitle ? <p className="hero-subtitle">{banner.subtitle}</p> : null}
+        {banner.title ? (
+          <h1
+            className="hero-title"
+            style={{
+              color: banner.text_color ?? undefined,
+              fontFamily: banner.title_font ?? undefined,
+            }}
+          >
+            {banner.title}
+          </h1>
+        ) : null}
+        {banner.subtitle ? (
+          <p
+            className="hero-subtitle"
+            style={{
+              color: banner.text_color ?? undefined,
+              fontFamily: banner.subtitle_font ?? undefined,
+            }}
+          >
+            {banner.subtitle}
+          </p>
+        ) : null}
         {banner.cta_label && banner.cta_href ? (
           <div>
-            <Link href={banner.cta_href} className="hero-cta">
+            <Link
+              href={banner.cta_href}
+              className="hero-cta"
+              style={{
+                color: banner.cta_text_color ?? undefined,
+                backgroundColor: banner.cta_bg_color ?? undefined,
+                fontFamily: banner.title_font ?? undefined,
+              }}
+            >
               {banner.cta_label}
             </Link>
           </div>

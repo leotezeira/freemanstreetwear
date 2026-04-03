@@ -10,6 +10,11 @@ export type HeroBanner = {
   image_path: string;
   sort_order: number;
   is_active: boolean;
+  title_font: string | null;
+  subtitle_font: string | null;
+  text_color: string | null;
+  cta_text_color: string | null;
+  cta_bg_color: string | null;
   created_at: string;
   signed_url?: string | null;
 };

@@ -68,12 +68,12 @@ export async function POST(request: Request) {
     try {
       webpBuffer = await sharp(rawBuffer)
         .rotate()
-        .resize({ width: 1920, withoutEnlargement: true })
+        .resize({ width: 1920, height: 600, fit: "cover", withoutEnlargement: true })
         .webp({ quality: 85 })
         .toBuffer();
     } catch {
       webpBuffer = await sharp(rawBuffer)
-        .resize({ width: 1920, withoutEnlargement: true })
+        .resize({ width: 1920, height: 600, fit: "cover", withoutEnlargement: true })
         .webp({ quality: 85 })
         .toBuffer();
     }
@@ -92,17 +92,24 @@ export async function POST(request: Request) {
 
     const { count } = await supabase.from("hero_banners").select("id", { count: "exact", head: true });
 
+    const bannerPayload = {
+      title: String(form.get("title") ?? "").trim() || null,
+      subtitle: String(form.get("subtitle") ?? "").trim() || null,
+      cta_label: String(form.get("cta_label") ?? "").trim() || null,
+      cta_href: String(form.get("cta_href") ?? "").trim() || null,
+      title_font: String(form.get("title_font") ?? "").trim() || null,
+      subtitle_font: String(form.get("subtitle_font") ?? "").trim() || null,
+      text_color: String(form.get("text_color") ?? "").trim() || null,
+      cta_text_color: String(form.get("cta_text_color") ?? "").trim() || null,
+      cta_bg_color: String(form.get("cta_bg_color") ?? "").trim() || null,
+      image_path: path,
+      sort_order: count ?? 0,
+      is_active: true,
+    };
+
     const { data: banner, error: insertError } = await supabase
       .from("hero_banners")
-      .insert({
-        title: String(form.get("title") ?? "").trim() || null,
-        subtitle: String(form.get("subtitle") ?? "").trim() || null,
-        cta_label: String(form.get("cta_label") ?? "").trim() || null,
-        cta_href: String(form.get("cta_href") ?? "").trim() || null,
-        image_path: path,
-        sort_order: count ?? 0,
-        is_active: true,
-      })
+      .insert(bannerPayload)
       .select()
       .single();
 
