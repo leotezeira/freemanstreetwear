@@ -86,7 +86,7 @@ export function ProductCard({ product }: ProductCardProps) {
         }
       }}
     >
-      <div className="relative block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="relative block overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 dark:bg-slate-950">
         <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
