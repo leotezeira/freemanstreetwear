@@ -7,6 +7,7 @@ import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
 import { ShoppingCart } from "lucide-react";
+import { INSTALLMENT_PLANS, TRANSFER_DISCOUNT_PERCENT, BADGE_RULES } from "@/lib/config/pricing";
 
 type ProductCardProps = {
   product: Product;
@@ -26,7 +27,31 @@ function isNew(createdAt: string) {
   const ts = Date.parse(createdAt);
   if (!Number.isFinite(ts)) return false;
   const days = (Date.now() - ts) / (1000 * 60 * 60 * 24);
-  return days <= 14;
+  return days <= BADGE_RULES.NEW_IN_DAYS;
+}
+
+function getTransferPrice(price: number) {
+  return Math.round(price * (1 - TRANSFER_DISCOUNT_PERCENT / 100));
+}
+
+function getBestInstallment(price: number) {
+  const applicable = INSTALLMENT_PLANS.filter((p) => price >= p.minAmount);
+  const best = applicable[applicable.length - 1];
+  return {
+    quantity: best.quantity,
+    amount: Math.round(price / best.quantity),
+  };
+}
+
+function showDropBadge(createdAt: string) {
+  const ts = Date.parse(createdAt);
+  if (!Number.isFinite(ts)) return false;
+  const days = (Date.now() - ts) / (1000 * 60 * 60 * 24);
+  return days <= BADGE_RULES.DROP_THRESHOLD;
+}
+
+function showLastUnits(stock: number) {
+  return stock > 0 && stock <= BADGE_RULES.LAST_UNITS_THRESHOLD;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
@@ -42,6 +67,11 @@ export function ProductCard({ product }: ProductCardProps) {
   const discountPct = getDiscountPercent(price, compareAt);
   const outOfStock = product.stock <= 0;
   const showNew = !outOfStock && !discountPct && isNew(product.created_at);
+  const transferPrice = getTransferPrice(price);
+  const installment = getBestInstallment(price);
+  const hasDiscount = !!discountPct;
+  const isDrop = !outOfStock && !discountPct && showDropBadge(product.created_at);
+  const isLastUnits = !outOfStock && showLastUnits(product.stock);
 
   return (
     <article
@@ -76,20 +106,35 @@ export function ProductCard({ product }: ProductCardProps) {
             />
           ) : null}
 
-          <div className="absolute left-3 top-3 flex items-center gap-2">
+          <div className="absolute left-3 top-3 flex flex-col gap-1.5">
             {outOfStock ? (
-              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white dark:bg-slate-50 dark:text-slate-950">
+              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
                 Agotado
               </span>
-            ) : discountPct ? (
-              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white dark:bg-slate-50 dark:text-slate-950">
-                -{discountPct}%
-              </span>
-            ) : showNew ? (
-              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white dark:bg-slate-50 dark:text-slate-950">
-                Nuevo
-              </span>
-            ) : null}
+            ) : (
+              <>
+                {isDrop && (
+                  <span className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg">
+                    🔥 DROP
+                  </span>
+                )}
+                {discountPct && (
+                  <span className="rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                    -{discountPct}%
+                  </span>
+                )}
+                {!isDrop && showNew && (
+                  <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                    NEW IN
+                  </span>
+                )}
+                {isLastUnits && (
+                  <span className="rounded-full border-2 border-red-500 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-red-600">
+                    ⚠️ Últimas
+                  </span>
+                )}
+              </>
+            )}
           </div>
 
           {/* Hover add-to-cart (desktop only) */}
@@ -142,17 +187,48 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         </div>
 
-        <div className="space-y-2 p-4">
+        <div className="space-y-2.5 p-4">
           <h3 className="line-clamp-2 text-base font-semibold text-slate-900 dark:text-slate-50">{product.name}</h3>
 
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-lg font-bold text-slate-900 dark:text-slate-50">{formatPrice(price)}</span>
-            {discountPct ? (
-              <span className="text-sm font-semibold text-slate-500 line-through dark:text-slate-400">
-                {formatPrice(compareAt)}
-              </span>
-            ) : null}
+          <div className="space-y-1">
+            {/* Precio principal + descuento */}
+            <div className="flex items-baseline gap-2">
+              {hasDiscount ? (
+                <>
+                  <span className="text-sm font-semibold text-slate-500 line-through dark:text-slate-400">
+                    {formatPrice(price)}
+                  </span>
+                  <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                    {formatPrice(transferPrice)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-lg font-black text-slate-900 dark:text-slate-50">
+                  {formatPrice(price)}
+                </span>
+              )}
+            </div>
+
+            {/* Precio con transferencia (si no hay descuento) */}
+            {!hasDiscount && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatPrice(transferPrice)}</span> con
+                Transferencia
+              </p>
+            )}
+
+            {/* Cuotas sin interés */}
+            <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              en {installment.quantity} cuotas sin interés de <span className="font-bold">{formatPrice(installment.amount)}</span>
+            </p>
           </div>
+
+          {/* Urgencia: unidades disponibles */}
+          {isLastUnits && (
+            <p className="text-xs font-semibold text-red-600 dark:text-red-400">
+              ⚠️ Solo quedan {product.stock} {product.stock === 1 ? "unidad" : "unidades"}
+            </p>
+          )}
         </div>
       </div>
 
