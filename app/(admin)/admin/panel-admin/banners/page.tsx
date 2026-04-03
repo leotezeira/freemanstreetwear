@@ -465,6 +465,9 @@ export default function AdminBannersPage() {
                       text_color: "#0f172a",
                       cta_text_color: "#f8fafc",
                       cta_bg_color: "#0f172a",
+                      zoom: 1.08,
+                      overlay_top: 0.95,
+                      overlay_bottom: 0.95,
                     });
                   }}
                   className="btn-secondary"
