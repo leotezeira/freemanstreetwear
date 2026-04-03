@@ -19,13 +19,26 @@ export function RegisterForm() {
 
     try {
       const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
 
       if (error) {
         throw error;
+      }
+
+      // Registrar usuario en app_users
+      if (data.user?.id) {
+        try {
+          await fetch("/api/app-users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ authId: data.user.id, email }),
+          });
+        } catch (err) {
+          console.warn("No se pudo registrar usuario en app_users:", err);
+        }
       }
 
       setMessage("Cuenta creada. Revisá tu email si tenés confirmación activa en Supabase.");

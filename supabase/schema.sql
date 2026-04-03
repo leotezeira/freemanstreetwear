@@ -370,3 +370,40 @@ EXCEPTION WHEN OTHERS THEN
   NULL;
 END$$;
 
+-- App users table (para rastrear usuarios registrados)
+create table if not exists public.app_users (
+  id uuid primary key default gen_random_uuid(),
+  auth_id uuid not null unique references auth.users(id) on delete cascade,
+  email text not null unique,
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz
+);
+
+alter table public.app_users enable row level security;
+
+create policy "Public can read own user" on public.app_users
+  for select
+  to authenticated
+  using (auth_id = auth.uid());
+
+create policy "Admins full access app_users" on public.app_users
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1
+      from public.admins a
+      where lower(a.email) = lower((auth.jwt() ->> 'email')::text)
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.admins a
+      where lower(a.email) = lower((auth.jwt() ->> 'email')::text)
+    )
+  );
+
+create index if not exists idx_app_users_email on public.app_users(email);
+create index if not exists idx_app_users_created_at on public.app_users(created_at desc);
+

@@ -22,7 +22,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
 
     try {
       const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
         throw error;
@@ -31,7 +31,20 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       // Ensure session is persisted (cookies/storage) before navigating to a protected route.
       await supabase.auth.getSession();
 
-      router.replace(redirectTo ?? "/admin/panel-admin");
+      // Registrar último login
+      if (data.user?.id) {
+        try {
+          await fetch("/api/app-users/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ authId: data.user.id }),
+          });
+        } catch (err) {
+          console.warn("No se pudo actualizar último login:", err);
+        }
+      }
+
+      router.replace(redirectTo ?? "/");
       router.refresh();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "No se pudo iniciar sesión");

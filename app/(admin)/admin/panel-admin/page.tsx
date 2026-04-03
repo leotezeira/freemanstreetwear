@@ -150,6 +150,9 @@ export default async function AdminPanelHomePage() {
           <div className="card-base">
             <h2 className="text-lg font-bold">Accesos rápidos</h2>
             <div className="mt-3 grid gap-2">
+              <Link className="btn-secondary" href="/admin/panel-admin/users">
+                Usuarios registrados
+              </Link>
               <Link className="btn-secondary" href="/admin/panel-admin/products">
                 Administrar productos
               </Link>
