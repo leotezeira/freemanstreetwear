@@ -23,10 +23,13 @@ export default async function HomePage() {
   const bannerSettings = await getBannerSettings().catch(() => ({ interval_ms: 5000 }));
 
   // Conteo de visitas (cada carga de home suma +1)
-  try {
-    await import("@/lib/services/metrics.service").then((mod) => mod.incrementPageViews());
-  } catch (error) {
-    console.warn("No se pudo incrementar visitas", error);
+  if (process.env.NODE_ENV === "production") {
+    try {
+      const { incrementPageViews } = await import("@/lib/services/metrics.service");
+      await incrementPageViews();
+    } catch (error) {
+      console.warn("No se pudo incrementar visitas", error);
+    }
   }
 
   let featuredProducts: any[] = [];
