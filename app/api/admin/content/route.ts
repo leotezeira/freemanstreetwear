@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     const heroSubtitle = String(formData.get("heroSubtitle") ?? "").trim();
     const heroCtaLabel = String(formData.get("heroCtaLabel") ?? "").trim();
     const heroCtaHref = String(formData.get("heroCtaHref") ?? "/shop").trim();
+    const topBarText = String(formData.get("topBarText") ?? "").trim();
     const promoTitle = String(formData.get("promoTitle") ?? "").trim();
     const promoSubtitle = String(formData.get("promoSubtitle") ?? "").trim();
     const newsletterTitle = String(formData.get("newsletterTitle") ?? "").trim();
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     if (!promoSubtitle) return NextResponse.json({ error: "Subtítulo promo es requerido" }, { status: 400 });
     if (!newsletterTitle) return NextResponse.json({ error: "Título newsletter es requerido" }, { status: 400 });
     if (!newsletterSubtitle) return NextResponse.json({ error: "Subtítulo newsletter es requerido" }, { status: 400 });
+    // topBarText es opcional
 
     const current = await getSiteContent({ resolveStorageUrls: false });
     let heroImageUrl = current.home.heroImageUrl;
@@ -106,6 +108,7 @@ export async function POST(request: Request) {
 
     // Build payload
     const payload: Record<string, string> = {
+      topBarText,
       heroTitle,
       heroSubtitle,
       heroCtaLabel,

@@ -151,4 +151,62 @@
       transform: scale(var(--hero-zoom, 1.08));
     }
   }
+
+  .top-bar {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    background: #111827;
+    color: #f8fafc;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .scroll-text {
+    display: inline-flex;
+    animation: scroll 12s linear infinite;
+    line-height: 2.2rem;
+  }
+
+  .scroll-text span {
+    padding-right: 4rem;
+  }
+
+  .top-bar:hover .scroll-text {
+    animation-play-state: paused;
+  }
+
+  .top-bar::before,
+  .top-bar::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 50px;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .top-bar::before {
+    left: 0;
+    background: linear-gradient(to right, #111827, rgba(17, 24, 39, 0));
+  }
+
+  .top-bar::after {
+    right: 0;
+    background: linear-gradient(to left, #111827, rgba(17, 24, 39, 0));
+  }
+
+  @keyframes scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
 }

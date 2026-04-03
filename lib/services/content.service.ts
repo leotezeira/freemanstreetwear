@@ -22,6 +22,7 @@ export type SiteContent = {
     socialLinks: SocialLinkItem[];
   };
   home: {
+    topBarText: string;
     heroTitle: string;
     heroSubtitle: string;
     heroCtaLabel: string;
@@ -53,6 +54,7 @@ const defaultContent: SiteContent = {
     ],
   },
   home: {
+    topBarText: "DROP 03 LIVE NOW // LIMITED STOCK // ENVÍOS A TODO ARG",
     heroTitle: "Streetwear premium para todos los días",
     heroSubtitle: "Colecciones minimalistas con identidad urbana y entrega rápida.",
     heroCtaLabel: "Comprar ahora",

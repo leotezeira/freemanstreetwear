@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 type HomeContentProps = {
+  topBarText: string;
   heroTitle: string;
   heroSubtitle: string;
   heroCtaLabel: string;
@@ -64,6 +65,14 @@ export default function AdminContentForm({ initialContent }: { initialContent: H
       )}
 
       <form onSubmit={handleSubmit} className="card-base grid gap-3" encType="multipart/form-data">
+        <input
+          name="topBarText"
+          defaultValue={initialContent.topBarText}
+          className="input-base"
+          placeholder="Texto barra superior (ej. DROP 03 LIVE NOW // ENVÍO GRATIS)"
+          disabled={loading}
+        />
+
         <input
           name="heroTitle"
           defaultValue={initialContent.heroTitle}

@@ -37,6 +37,15 @@ export default async function HomePage() {
 
   return (
     <main>
+      {/* Top barra*/}
+      {content.home.topBarText ? (
+        <div className="top-bar">
+          <div className="scroll-text">
+            <span>{content.home.topBarText}</span>
+            <span>{content.home.topBarText}</span>
+          </div>
+        </div>
+      ) : null}
       {/* Hero */}
       {banners.length > 0 ? (
         <HeroCarousel banners={banners} intervalMs={bannerSettings.interval_ms} />
