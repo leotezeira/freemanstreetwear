@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getBundleRatingSummary,
   rateBundle,
@@ -39,13 +39,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get the authenticated user's ID from Supabase
-    const supabase = getSupabaseAdminClient();
+    // Get the authenticated user from the server session
+    const supabase = await getSupabaseServerClient();
     const {
       data: { user },
-    } = await supabase.auth.admin.getUserBySql("SELECT * FROM auth.users LIMIT 1");
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: "User must be authenticated" },
         { status: 401 }
