@@ -67,7 +67,7 @@ export default async function BundlesPage() {
                   <h3 className="font-bold text-slate-900 dark:text-slate-50 group-hover:underline">
                     {bundle.name}
                   </h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                     {bundle.description ?? "Combo especial de productos"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">

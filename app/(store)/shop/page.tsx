@@ -242,7 +242,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                         <h3 className="mt-1 font-bold text-slate-900 dark:text-slate-50 group-hover:underline">
                           {item.name}
                         </h3>
-                        <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
+                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                           {item.description ?? "Combo especial"}
                         </p>
                         {item.min_items && item.max_items && (
