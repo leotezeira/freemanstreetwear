@@ -22,8 +22,7 @@ export function Header({ logoText, logoUrl, navLinks }: HeaderProps) {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="app-container flex h-16 items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 text-lg font-black tracking-tight">
-          {logoUrl ? <img src={logoUrl} alt={logoText} className="h-8 w-8 rounded-full object-cover" /> : null}
-          <span>{logoText}</span>
+          {logoUrl ? <img src={logoUrl} alt={logoText} className="h-8 w-8 object-contain" /> : null}
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
