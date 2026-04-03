@@ -23,6 +23,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if ("text_color" in body) updates.text_color = (body.text_color as string | null) ?? null;
     if ("cta_text_color" in body) updates.cta_text_color = (body.cta_text_color as string | null) ?? null;
     if ("cta_bg_color" in body) updates.cta_bg_color = (body.cta_bg_color as string | null) ?? null;
+    if ("zoom" in body) updates.zoom = Number(body.zoom);
+    if ("overlay_top" in body) updates.overlay_top = Number(body.overlay_top);
+    if ("overlay_bottom" in body) updates.overlay_bottom = Number(body.overlay_bottom);
 
     const supabase = getSupabaseAdminClient();
     const { error } = await supabase.from("hero_banners").update(updates).eq("id", id);

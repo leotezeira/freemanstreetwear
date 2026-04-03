@@ -15,6 +15,9 @@ export type HeroBanner = {
   text_color: string | null;
   cta_text_color: string | null;
   cta_bg_color: string | null;
+  zoom: number | null;
+  overlay_top: number | null;
+  overlay_bottom: number | null;
   created_at: string;
   signed_url?: string | null;
 };

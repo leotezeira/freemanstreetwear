@@ -20,6 +20,9 @@ type Banner = {
   text_color: string | null;
   cta_text_color: string | null;
   cta_bg_color: string | null;
+  zoom: number | null;
+  overlay_top: number | null;
+  overlay_bottom: number | null;
   signed_url?: string | null;
 };
 
@@ -43,6 +46,9 @@ export default function AdminBannersPage() {
     text_color: "#0f172a",
     cta_text_color: "#f8fafc",
     cta_bg_color: "#0f172a",
+    zoom: 1.08,
+    overlay_top: 0.95,
+    overlay_bottom: 0.95,
   });
 
   useEffect(() => {
@@ -81,6 +87,9 @@ export default function AdminBannersPage() {
       fd.set("text_color", form.text_color);
       fd.set("cta_text_color", form.cta_text_color);
       fd.set("cta_bg_color", form.cta_bg_color);
+      fd.set("zoom", String(form.zoom));
+      fd.set("overlay_top", String(form.overlay_top));
+      fd.set("overlay_bottom", String(form.overlay_bottom));
 
       const res = await fetch("/api/admin/hero-banners", { method: "POST", body: fd });
       const body = (await res.json().catch(() => null)) as any;
@@ -97,6 +106,9 @@ export default function AdminBannersPage() {
         text_color: "#0f172a",
         cta_text_color: "#f8fafc",
         cta_bg_color: "#0f172a",
+        zoom: 1.08,
+        overlay_top: 0.95,
+        overlay_bottom: 0.95,
       });
       setEditingId(null);
       setShowForm(false);
@@ -128,6 +140,9 @@ export default function AdminBannersPage() {
         text_color: form.text_color || null,
         cta_text_color: form.cta_text_color || null,
         cta_bg_color: form.cta_bg_color || null,
+        zoom: form.zoom,
+        overlay_top: form.overlay_top,
+        overlay_bottom: form.overlay_bottom,
       };
 
       const res = await fetch(`/api/admin/hero-banners/${editingId}`, {
@@ -149,6 +164,9 @@ export default function AdminBannersPage() {
         text_color: "#0f172a",
         cta_text_color: "#f8fafc",
         cta_bg_color: "#0f172a",
+        zoom: 1.08,
+        overlay_top: 0.95,
+        overlay_bottom: 0.95,
       });
       setEditingId(null);
       setShowForm(false);
@@ -203,6 +221,9 @@ export default function AdminBannersPage() {
       text_color: banner.text_color ?? "#0f172a",
       cta_text_color: banner.cta_text_color ?? "#f8fafc",
       cta_bg_color: banner.cta_bg_color ?? "#0f172a",
+      zoom: banner.zoom ?? 1.08,
+      overlay_top: banner.overlay_top ?? 0.95,
+      overlay_bottom: banner.overlay_bottom ?? 0.95,
     });
   }
 
@@ -336,6 +357,42 @@ export default function AdminBannersPage() {
                 value={form.cta_bg_color}
                 onChange={(e) => setForm((p) => ({ ...p, cta_bg_color: e.target.value }))}
                 className="w-full rounded-xl border border-slate-300 p-1"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium">Zoom banner ({form.zoom.toFixed(2)}x)</label>
+              <input
+                type="range"
+                min={1}
+                max={1.5}
+                step={0.01}
+                value={form.zoom}
+                onChange={(e) => setForm((p) => ({ ...p, zoom: Number(e.target.value) }))}
+                className="w-full"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium">Desvanecimiento arriba ({(form.overlay_top*100).toFixed(0)}%)</label>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={form.overlay_top}
+                onChange={(e) => setForm((p) => ({ ...p, overlay_top: Number(e.target.value) }))}
+                className="w-full"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium">Desvanecimiento abajo ({(form.overlay_bottom*100).toFixed(0)}%)</label>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={form.overlay_bottom}
+                onChange={(e) => setForm((p) => ({ ...p, overlay_bottom: Number(e.target.value) }))}
+                className="w-full"
               />
             </div>
             <div>

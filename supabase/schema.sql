@@ -360,7 +360,10 @@ BEGIN
       ADD COLUMN IF NOT EXISTS subtitle_font text,
       ADD COLUMN IF NOT EXISTS text_color text,
       ADD COLUMN IF NOT EXISTS cta_text_color text,
-      ADD COLUMN IF NOT EXISTS cta_bg_color text;
+      ADD COLUMN IF NOT EXISTS cta_bg_color text,
+      ADD COLUMN IF NOT EXISTS zoom numeric(4,2) default 1.08,
+      ADD COLUMN IF NOT EXISTS overlay_top numeric(4,2) default 0.95,
+      ADD COLUMN IF NOT EXISTS overlay_bottom numeric(4,2) default 0.95;
   END IF;
 EXCEPTION WHEN OTHERS THEN
   -- Tabla no existe o ya tiene las columnas.

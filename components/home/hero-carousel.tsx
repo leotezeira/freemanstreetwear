@@ -40,15 +40,34 @@ export function HeroCarousel({ banners, intervalMs }: Props) {
   if (!total) return null;
   const banner = banners[current];
 
+  const overlayTop = typeof banner.overlay_top === "number" ? banner.overlay_top : 0.95;
+  const overlayBottom = typeof banner.overlay_bottom === "number" ? banner.overlay_bottom : 0.95;
+
+  const overlayBackground = `linear-gradient(
+    to bottom,
+    rgba(248, 246, 240, ${overlayTop}) 0%,
+    rgba(248, 246, 240, ${Math.max(0, overlayTop * 0.6)}) 15%,
+    rgba(248, 246, 240, 0) 35%,
+    rgba(248, 246, 240, 0) 65%,
+    rgba(248, 246, 240, ${Math.max(0, overlayBottom * 0.6)}) 85%,
+    rgba(248, 246, 240, ${overlayBottom}) 100%
+  )`;
+
   return (
     <section className="hero-premium">
-      <div className="hero-bg-layer transition-opacity duration-300" style={{ opacity: fading ? 0 : 1 }}>
+      <div
+        className="hero-bg-layer transition-opacity duration-300"
+        style={{
+          opacity: fading ? 0 : 1,
+          "--hero-zoom": `${banner.zoom ?? 1.08}`,
+        } as React.CSSProperties}
+      >
         <ClientImage
           src={banner.signed_url ?? null}
           alt={banner.title ?? "Banner"}
           className="hero-bg-image"
         />
-        <div className="hero-overlay-premium" />
+        <div className="hero-overlay-premium" style={{ background: overlayBackground }} />
       </div>
 
       <div className="hero-content-premium transition-opacity duration-300" style={{ opacity: fading ? 0 : 1 }}>
