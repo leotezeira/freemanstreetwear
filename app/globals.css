@@ -68,6 +68,58 @@
     transform: translateY(0);
   }
 
+  .loading-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-white/90;
+    backdrop-filter: blur(28px);
+    animation: loading-screen 0.9s cubic-bezier(0.29, 0.01, 0.18, 1.02) forwards;
+  }
+
+  .loading-overlay__card {
+    @apply flex flex-col items-center gap-3 rounded-3xl bg-white/80 px-6 py-5 shadow-2xl shadow-slate-900/20;
+    backdrop-filter: blur(12px);
+  }
+
+  .loading-overlay__label {
+    @apply text-sm font-semibold uppercase tracking-[0.4em] text-slate-900;
+  }
+
+  .loading-overlay__dots {
+    @apply flex items-center gap-3;
+  }
+
+  .loading-overlay__dot {
+    @apply h-2 w-2 rounded-full bg-slate-900 opacity-40;
+    animation: loading-dot 0.9s ease-in-out infinite;
+  }
+
+  @keyframes loading-screen {
+    0% {
+      opacity: 1;
+      backdrop-filter: blur(32px);
+    }
+    65% {
+      opacity: 0.9;
+      backdrop-filter: blur(16px);
+    }
+    100% {
+      opacity: 0;
+      backdrop-filter: blur(0);
+    }
+  }
+
+  @keyframes loading-dot {
+    0%,
+    80%,
+    100% {
+      transform: scale(0.85);
+      opacity: 0.4;
+    }
+    40% {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+  }
+
   .hero-premium {
     position: relative;
     isolation: isolate;

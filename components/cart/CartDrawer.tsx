@@ -9,14 +9,21 @@ import { useCartStore } from "@/lib/cart/store";
 import type { CartStoredLineItem } from "@/lib/cart/utils";
 import { Package2, ShoppingCart, X } from "lucide-react";
 
-function SkeletonLine() {
+function LoadingOverlay() {
+  const dots = Array.from({ length: 3 });
   return (
-    <div className="flex gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-      <div className="h-16 w-16 rounded-lg bg-slate-100 dark:bg-slate-900" />
-      <div className="flex-1 space-y-2">
-        <div className="h-4 w-3/4 rounded bg-slate-100 dark:bg-slate-900" />
-        <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-900" />
-        <div className="h-9 w-40 rounded bg-slate-100 dark:bg-slate-900" />
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-[28px]" role="status" aria-live="polite">
+      <div className="loading-overlay__card">
+        <p className="loading-overlay__label">Cargando carrito...</p>
+        <div className="loading-overlay__dots" aria-hidden="true">
+          {dots.map((_, index) => (
+            <span
+              key={index}
+              className="loading-overlay__dot"
+              style={{ animationDelay: `${index * 0.14}s` }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -140,14 +147,10 @@ export function CartDrawer() {
           </button>
         </header>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4 relative">
+            {busy && <LoadingOverlay />}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-              {busy ? (
-                <>
-                  <SkeletonLine />
-                  <SkeletonLine />
-                </>
-              ) : !hasVisibleItems ? (
+              {!hasVisibleItems ? (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
                   Tu carrito está vacío.
                 </div>

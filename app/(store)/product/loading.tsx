@@ -1,10 +1,10 @@
 const dots = Array.from({ length: 3 });
 
-export default function AdminPanelLoading() {
+export default function ProductLoading() {
   return (
     <div className="loading-overlay" role="status" aria-live="polite">
       <div className="loading-overlay__card">
-        <p className="loading-overlay__label">Cargando panel...</p>
+        <p className="loading-overlay__label">Cargando producto...</p>
         <div className="loading-overlay__dots" aria-hidden="true">
           {dots.map((_, index) => (
             <span
