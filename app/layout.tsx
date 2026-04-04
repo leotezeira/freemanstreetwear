@@ -25,7 +25,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         {/* Cache agresivo para imágenes estáticas */}
         <meta httpEquiv="Cache-Control" content="public, max-age=31536000, immutable" />
       </head>
-      <body className="min-h-screen bg-slate-50">{children}</body>
+      <body className="min-h-screen bg-slate-50 pb-28 sm:pb-0">{children}</body>
     </html>
   );
 }
