@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { Product } from "@/types/domain";
 import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
@@ -56,7 +55,6 @@ function showLastUnits(stock: number) {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const router = useRouter();
   const toast = useToast();
   const addToCart = useCartStore((s) => s.addToCart);
   const openDrawer = useCartStore((s) => s.openDrawer);
@@ -75,26 +73,17 @@ export function ProductCard({ product }: ProductCardProps) {
   const isLastUnits = !outOfStock && showLastUnits(product.stock);
 
   return (
-    <article
-      className="group cursor-pointer"
-      role="link"
-      tabIndex={0}
-      onClick={() => router.push(`/product/${product.id}`)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          router.push(`/product/${product.id}`);
-        }
-      }}
-    >
+    <Link href={`/product/${product.id}`} prefetch={true}>
+      <article className="group cursor-pointer"
       <div className="relative block overflow-hidden rounded-2xl bg-transparent transition hover:-translate-y-0.5">
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-transparent">
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageUrl ?? "/product-placeholder.svg"}
             alt={product.name}
             className="absolute inset-0 h-full w-full object-cover transition duration-200 group-hover:scale-105"
             loading="lazy"
+            decoding="async"
           />
 
           {hoverUrl ? (
@@ -104,6 +93,7 @@ export function ProductCard({ product }: ProductCardProps) {
               alt=""
               className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-200 group-hover:opacity-100"
               loading="lazy"
+              decoding="async"
             />
           ) : null}
 
@@ -238,17 +228,13 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Accesible fallback link (sr-only) */}
-      <Link href={`/product/${product.id}`} className="sr-only">
-        {product.name}
-      </Link>
-
       <style jsx>{`
         article:hover [data-hover-btn] {
           opacity: 1 !important;
           transform: translateY(0) !important;
         }
       `}</style>
-    </article>
+      </article>
+    </Link>
   );
 }

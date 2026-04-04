@@ -21,6 +21,12 @@
   a {
     @apply transition-colors;
   }
+
+  /* Optimización: Evita layout shift */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 @layer components {

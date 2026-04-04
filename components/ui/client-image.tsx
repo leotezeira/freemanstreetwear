@@ -29,6 +29,7 @@ export function ClientImage({ src, alt, className, fallbackSrc }: Props) {
       src={imgSrc}
       alt={alt}
       className={className}
+      decoding="async"
       onError={() => setImgSrc(fallbackSrc || DEFAULT_FALLBACK)}
     />
   );

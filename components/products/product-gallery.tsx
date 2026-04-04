@@ -53,12 +53,12 @@ export function ProductGallery({ images, alt }: ProductGalleryProps) {
           {sorted.length ? (
             sorted.map((img) => (
               <div key={img.id} className="w-full shrink-0 snap-center">
-                <img src={img.url} alt={alt} className="h-full w-full object-cover" />
+                <img src={img.url} alt={alt} className="aspect-square w-full object-cover" decoding="async" />
               </div>
             ))
           ) : (
             <div className="w-full shrink-0 snap-center">
-              <img src="/product-placeholder.svg" alt={alt} className="h-full w-full object-cover" />
+              <img src="/product-placeholder.svg" alt={alt} className="aspect-square w-full object-cover" />
             </div>
           )}
         </div>
@@ -96,7 +96,7 @@ export function ProductGallery({ images, alt }: ProductGalleryProps) {
                 ].join(" ")}
                 aria-label="Seleccionar imagen"
               >
-                <img src={img.url} alt="" className="h-20 w-20 object-cover" loading="lazy" />
+                <img src={img.url} alt="" className="aspect-square h-20 w-20 object-cover" loading="lazy" decoding="async" />
               </button>
             ))}
           </div>
@@ -108,7 +108,8 @@ export function ProductGallery({ images, alt }: ProductGalleryProps) {
           <img
             src={active?.url ?? "/product-placeholder.svg"}
             alt={alt}
-            className="h-full w-full object-cover transition duration-200 group-hover:scale-110"
+            className="aspect-square w-full object-cover transition duration-200 group-hover:scale-110"
+            decoding="async"
           />
         </div>
       </div>
