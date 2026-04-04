@@ -74,8 +74,8 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link href={`/product/${product.id}`} prefetch={true}>
-      <article className="group cursor-pointer"
-      <div className="relative block overflow-hidden rounded-2xl bg-transparent transition hover:-translate-y-0.5">
+      <article className="group cursor-pointer">
+        <div className="relative block overflow-hidden rounded-2xl bg-transparent transition hover:-translate-y-0.5">
         <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
