@@ -6,7 +6,7 @@ import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
 import { ShoppingCart } from "lucide-react";
-import { INSTALLMENT_PLANS, TRANSFER_DISCOUNT_PERCENT, BADGE_RULES } from "@/lib/config/pricing";
+import { TRANSFER_DISCOUNT_PERCENT, BADGE_RULES } from "@/lib/config/pricing";
 import { StarRating } from "@/components/ratings/star-rating";
 
 type ProductCardProps = {
@@ -34,15 +34,6 @@ function getTransferPrice(price: number) {
   return Math.round(price * (1 - TRANSFER_DISCOUNT_PERCENT / 100));
 }
 
-function getBestInstallment(price: number) {
-  const applicable = INSTALLMENT_PLANS.filter((p) => price >= p.minAmount);
-  const best = applicable[applicable.length - 1];
-  return {
-    quantity: best.quantity,
-    amount: Math.round(price / best.quantity),
-  };
-}
-
 function showDropBadge(createdAt: string) {
   const ts = Date.parse(createdAt);
   if (!Number.isFinite(ts)) return false;
@@ -67,173 +58,165 @@ export function ProductCard({ product }: ProductCardProps) {
   const outOfStock = product.stock <= 0;
   const showNew = !outOfStock && !discountPct && isNew(product.created_at);
   const transferPrice = getTransferPrice(price);
-  const installment = getBestInstallment(price);
   const hasDiscount = !!discountPct;
   const isDrop = !outOfStock && !discountPct && showDropBadge(product.created_at);
   const isLastUnits = !outOfStock && showLastUnits(product.stock);
 
   return (
     <Link href={`/product/${product.id}`} prefetch={true}>
-      <article className="group cursor-pointer">
-        <div className="relative block overflow-hidden rounded-2xl bg-transparent transition hover:-translate-y-0.5">
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageUrl ?? "/product-placeholder.svg"}
-            alt={product.name}
-            className="absolute inset-0 h-full w-full object-cover transition duration-200 group-hover:scale-105"
-            loading="lazy"
-            decoding="async"
-          />
-
-          {hoverUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+      <article className="group flex h-full flex-col cursor-pointer">
+        {/* === IMAGEN CONTAINER === */}
+        <div className="relative w-full overflow-hidden rounded-lg transition-transform duration-300 group-hover:-translate-y-1">
+          <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+            {/* Imagen principal */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={hoverUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-200 group-hover:opacity-100"
+              src={imageUrl ?? "/product-placeholder.svg"}
+              alt={product.name}
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
               loading="lazy"
               decoding="async"
             />
-          ) : null}
 
-          <div className="absolute left-3 top-3 flex flex-col gap-1.5">
-            {outOfStock ? (
-              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-                Agotado
-              </span>
-            ) : (
-              <>
-                {isDrop && (
-                  <span className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg">
-                    🔥 DROP
-                  </span>
-                )}
-                {discountPct && (
-                  <span className="rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-                    -{discountPct}%
-                  </span>
-                )}
-                {!isDrop && showNew && (
-                  <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-                    NEW IN
-                  </span>
-                )}
-                {isLastUnits && (
-                  <span className="rounded-full border-2 border-red-500 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-red-600">
-                    ⚠️ Últimas
-                  </span>
-                )}
-              </>
+            {/* Imagen hover (2da imagen) */}
+            {hoverUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={hoverUrl}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-300 group-hover:opacity-100"
+                loading="lazy"
+                decoding="async"
+              />
             )}
-          </div>
 
-          {/* Hover add-to-cart (desktop only) */}
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 hidden lg:block">
-            <button
-              type="button"
-              className="btn-primary pointer-events-auto w-full"
-              disabled={outOfStock}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const result = addToCart({
-                  productId: product.id,
-                  variantId: null,
-                  name: product.name,
-                  unitPrice: price,
-                  compareAtPrice: Number.isFinite(compareAt) && compareAt > 0 ? compareAt : null,
-                  quantity: 1,
-                  imageUrl: imageUrl ?? null,
-                  stock: product.stock,
-                  isActive: product.is_active,
-                  weight_grams: product.weight_grams ?? null,
-                  height: product.height ?? null,
-                  width: product.width ?? null,
-                  length: product.length ?? null,
-                });
+            {/* === BADGES (esquina superior izquierda) === */}
+            <div className="absolute left-2 top-2 flex flex-col gap-1">
+              {outOfStock && (
+                <span className="rounded-full bg-slate-900/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+                  Agotado
+                </span>
+              )}
+              {!outOfStock && isDrop && (
+                <span className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
+                  🔥 DROP
+                </span>
+              )}
+              {!outOfStock && discountPct && (
+                <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  -{discountPct}%
+                </span>
+              )}
+              {!outOfStock && !isDrop && showNew && (
+                <span className="rounded-full bg-slate-900/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+                  NEW
+                </span>
+              )}
+              {!outOfStock && isLastUnits && (
+                <span className="rounded-full border-2 border-red-500 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600">
+                  ⚠️ Últimas
+                </span>
+              )}
+            </div>
 
-                if (!result.ok) {
-                  toast.push({ variant: "error", title: "Carrito", description: result.reason });
-                  return;
-                }
+            {/* === BOTÓN HOVER (solo desktop) === */}
+            <div className="pointer-events-none absolute inset-x-2 bottom-2 hidden lg:block">
+              <button
+                type="button"
+                className="btn-primary pointer-events-auto w-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                disabled={outOfStock}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const result = addToCart({
+                    productId: product.id,
+                    variantId: null,
+                    name: product.name,
+                    unitPrice: price,
+                    compareAtPrice: Number.isFinite(compareAt) && compareAt > 0 ? compareAt : null,
+                    quantity: 1,
+                    imageUrl: imageUrl ?? null,
+                    stock: product.stock,
+                    isActive: product.is_active,
+                    weight_grams: product.weight_grams ?? null,
+                    height: product.height ?? null,
+                    width: product.width ?? null,
+                    length: product.length ?? null,
+                  });
 
-                openDrawer();
-                toast.push({
-                  variant: result.clamped ? "info" : "success",
-                  title: "Carrito",
-                  description: result.clamped
-                    ? "Agregado, pero se ajustó al stock disponible."
-                    : "Producto agregado al carrito.",
-                });
-              }}
-              style={{ opacity: 0, transform: "translateY(6px)", transition: "all 200ms ease" }}
-              data-hover-btn
-            >
-              <span className="flex items-center justify-center gap-2">
-                <Icon icon={ShoppingCart} />
-                <span>{outOfStock ? "Agotado" : "Agregar al carrito"}</span>
-              </span>
-            </button>
+                  if (!result.ok) {
+                    toast.push({ variant: "error", title: "Carrito", description: result.reason });
+                    return;
+                  }
+
+                  openDrawer();
+                  toast.push({
+                    variant: result.clamped ? "info" : "success",
+                    title: "Carrito",
+                    description: result.clamped
+                      ? "Agregado, pero se ajustó al stock disponible."
+                      : "Producto agregado al carrito.",
+                  });
+                }}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <Icon icon={ShoppingCart} />
+                  <span>{outOfStock ? "Agotado" : "Agregar"}</span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-2.5 p-4">
-          <h3 className="line-clamp-2 text-base font-semibold text-slate-900 dark:text-slate-50">{product.name}</h3>
+        {/* === CONTENIDO MINIMALISTA (nombre + precio) === */}
+        <div className="flex flex-1 flex-col justify-between gap-2 pt-3">
+          {/* Nombre del producto */}
+          <h3 className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-slate-50">
+            {product.name}
+          </h3>
 
-          <div className="space-y-1">
-            {/* Precio principal + descuento */}
+          {/* Precio */}
+          <div className="flex flex-col gap-1">
             <div className="flex items-baseline gap-2">
               {hasDiscount ? (
                 <>
-                  <span className="text-sm font-semibold text-slate-500 line-through dark:text-slate-400">
-                    {formatPrice(price)}
+                  <span className="text-xs font-medium text-slate-500 line-through dark:text-slate-400">
+                    {formatPrice(compareAt)}
                   </span>
-                  <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                    {formatPrice(transferPrice)}
+                  <span className="font-bold text-slate-900 dark:text-slate-50">
+                    {formatPrice(price)}
                   </span>
                 </>
               ) : (
-                <span className="text-lg font-black text-slate-900 dark:text-slate-50">
+                <span className="font-bold text-slate-900 dark:text-slate-50">
                   {formatPrice(price)}
                 </span>
               )}
             </div>
 
-            {/* Precio con transferencia (si no hay descuento) */}
+            {/* Opción de transferencia */}
             {!hasDiscount && (
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatPrice(transferPrice)}</span> con
-                Transferencia
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  {formatPrice(transferPrice)}
+                </span>
+                {" "}con Transferencia
               </p>
             )}
-
-            {/* Cuotas sin interés */}
-            <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-              en {installment.quantity} cuotas sin interés de <span className="font-bold">{formatPrice(installment.amount)}</span>
-            </p>
           </div>
 
           {/* Star Rating */}
-          <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+          <div className="border-t border-slate-200 pt-2 dark:border-slate-700">
             <StarRating productId={product.id} />
           </div>
 
-          {/* Urgencia: unidades disponibles */}
+          {/* Urgencia */}
           {isLastUnits && (
             <p className="text-xs font-semibold text-red-600 dark:text-red-400">
-              ⚠️ Solo quedan {product.stock} {product.stock === 1 ? "unidad" : "unidades"}
+              ⚠️ {product.stock} unidad{product.stock === 1 ? "" : "es"}
             </p>
           )}
         </div>
-      </div>
-
-      <style jsx>{`
-        article:hover [data-hover-btn] {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-        }
-      `}</style>
       </article>
     </Link>
   );
