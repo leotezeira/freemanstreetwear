@@ -1,30 +1,31 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(true);
-  const prevPathname = useRef(pathname);
+  const [loaded, setLoaded] = useState(false);
+  const [activePath, setActivePath] = useState(pathname);
 
   useEffect(() => {
-    if (prevPathname.current === pathname) return;
-    prevPathname.current = pathname;
+    setLoaded(true);
+  }, []);
 
-    setVisible(false);
-    const t = setTimeout(() => setVisible(true), 80);
-    return () => clearTimeout(t);
-  }, [pathname]);
+  useEffect(() => {
+    if (activePath === pathname) return;
+
+    setLoaded(false);
+    const timeout = window.setTimeout(() => {
+      setActivePath(pathname);
+      setLoaded(true);
+    }, 60);
+
+    return () => window.clearTimeout(timeout);
+  }, [pathname, activePath]);
 
   return (
-    <div
-      style={{
-        opacity: visible ? 1 : 0,
-        transition: "opacity 220ms ease",
-        willChange: "opacity",
-      }}
-    >
+    <div className={`page ${loaded ? "loaded" : ""}`} key={activePath}>
       {children}
     </div>
   );

@@ -52,6 +52,22 @@
     @apply dark:border-slate-800 dark:bg-slate-900;
   }
 
+  .page {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(8px);
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
+      filter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
+      transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+    will-change: opacity, filter, transform;
+  }
+
+  .page.loaded {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+
   .hero-premium {
     position: relative;
     isolation: isolate;
