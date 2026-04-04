@@ -11,7 +11,8 @@
 
   body {
     @apply bg-white text-slate-900 antialiased;
-    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.5px;
   }
 
   .dark body {
@@ -35,8 +36,16 @@
   }
 
   /* Typography adjustments */
-  h1, h2, h3 {
-    letter-spacing: -0.5px;
+  h1,
+  h2 {
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  h3 {
+    letter-spacing: 0.5px;
   }
 
   button {
@@ -47,6 +56,24 @@
 @layer components {
   .app-container {
     @apply mx-auto w-[92%] max-w-7xl;
+  }
+
+  section {
+    margin-bottom: 40px;
+  }
+
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .product-title {
+    @apply text-sm font-semibold uppercase tracking-[1.5px];
+  }
+
+  .product-price {
+    @apply text-xs uppercase tracking-[1px];
   }
 
   .btn-primary {

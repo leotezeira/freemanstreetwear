@@ -64,7 +64,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link href={`/product/${product.id}`} prefetch={true}>
-      <article className="group flex h-full flex-col cursor-pointer">
+      <article className="product-card group flex h-full flex-col cursor-pointer">
         {/* === IMAGEN CONTAINER === */}
         <div className="relative w-full overflow-hidden transition-transform duration-300 group-hover:-translate-y-1">
           <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
@@ -171,7 +171,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* === CONTENIDO MINIMALISTA (nombre + precio) === */}
         <div className="flex flex-1 flex-col justify-between gap-2 pt-3">
           {/* Nombre del producto */}
-          <h3 className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-slate-50">
+          <h3 className="product-title line-clamp-2 text-slate-900 dark:text-slate-50">
             {product.name}
           </h3>
 
@@ -180,15 +180,15 @@ export function ProductCard({ product }: ProductCardProps) {
             <div className="flex items-baseline gap-2">
               {hasDiscount ? (
                 <>
-                  <span className="text-xs font-medium text-slate-500 line-through dark:text-slate-400">
+                  <span className="product-price font-medium text-slate-500 line-through dark:text-slate-400">
                     {formatPrice(compareAt)}
                   </span>
-                  <span className="font-bold text-slate-900 dark:text-slate-50">
+                  <span className="product-price font-bold text-slate-900 dark:text-slate-50">
                     {formatPrice(price)}
                   </span>
                 </>
               ) : (
-                <span className="font-bold text-slate-900 dark:text-slate-50">
+                <span className="product-price font-bold text-slate-900 dark:text-slate-50">
                   {formatPrice(price)}
                 </span>
               )}
@@ -196,7 +196,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
             {/* Opción de transferencia */}
             {!hasDiscount && (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="product-price text-slate-500 dark:text-slate-400">
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                   {formatPrice(transferPrice)}
                 </span>
