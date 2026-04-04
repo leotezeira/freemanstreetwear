@@ -98,22 +98,14 @@
   }
 
   .page {
-    filter: blur(10px);
-    opacity: 0.4;
-    transition: filter 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: filter, opacity;
-  }
-
-  .page.loaded {
-    filter: blur(0);
+    filter: none;
     opacity: 1;
   }
 
   .loading-overlay {
-    @apply fixed inset-0 z-50 flex items-center justify-center bg-white;
-    transition: opacity 0.5s ease, pointer-events 0.5s ease;
-    pointer-events: auto;
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-transparent;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
   }
 
   .loading-overlay.hide {

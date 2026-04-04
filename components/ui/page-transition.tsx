@@ -24,32 +24,24 @@ function LoadingOverlay({ hide }: { hide: boolean }) {
 
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [loaded, setLoaded] = useState(false);
   const [hideOverlay, setHideOverlay] = useState(false);
 
   useEffect(() => {
-    // Mostrar contenido y desvanencer overlay
-    setLoaded(false);
     setHideOverlay(false);
 
-    const timer1 = setTimeout(() => {
-      setLoaded(true);
-    }, 100);
-
-    const timer2 = setTimeout(() => {
+    const timer = setTimeout(() => {
       setHideOverlay(true);
     }, 400);
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      clearTimeout(timer);
     };
   }, [pathname]);
 
   return (
     <>
       <LoadingOverlay hide={hideOverlay} />
-      <div className={`page ${loaded ? "loaded" : ""}`}>
+      <div className="page">
         {children}
       </div>
     </>
