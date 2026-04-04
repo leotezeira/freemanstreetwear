@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { ProductVariant } from "@/types/domain";
 import { ProductActions } from "@/components/products/product-actions";
 import { VariantSelector, type SelectedVariant } from "@/components/products/variant-selector";
+import { StarRating } from "@/components/ratings/star-rating";
 import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
 
@@ -80,6 +81,8 @@ export function ProductDetailActions({
             Ahorrás {formatPrice(compareAtPrice - selected.price)}
           </p>
         ) : null}
+
+        <StarRating productId={productId} />
       </div>
 
       <VariantSelector variants={variants} basePrice={basePrice} baseStock={baseStock} onChange={setSelected} />

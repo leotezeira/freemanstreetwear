@@ -159,9 +159,6 @@ export function StarRating({
       </div>
 
       {/* User feedback */}
-      {!session && (
-        <p className="text-xs text-gray-500">Conecta para calificar</p>
-      )}
       {error && <p className="text-xs text-red-500">{error}</p>}
       {userRating && !error && (
         <p className="text-xs text-green-600">
