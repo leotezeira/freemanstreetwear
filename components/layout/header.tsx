@@ -31,7 +31,7 @@ export function Header({ logoText, logoUrl, navLinks }: HeaderProps) {
               {link.label}
             </Link>
           ))}
-          <Link href="/auth" className="rounded-lg border border-slate-300 px-3 py-2 hover:border-slate-900">
+          <Link href="/auth" className="border border-slate-300 px-3 py-2 hover:border-slate-900">
             Ingresar
           </Link>
         </nav>
@@ -39,7 +39,7 @@ export function Header({ logoText, logoUrl, navLinks }: HeaderProps) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 hover:border-slate-900"
+            className="relative inline-flex h-10 w-10 items-center justify-center border border-slate-300 hover:border-slate-900"
             aria-label="Abrir carrito"
             onClick={() => openCart()}
           >

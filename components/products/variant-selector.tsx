@@ -97,8 +97,8 @@ export function VariantSelector({ variants, basePrice, baseStock, onChange }: Pr
                 key={s}
                 type="button"
                 className={[
-                  "rounded-full border px-4 py-2 text-sm font-semibold transition",
-                  active ? "border-slate-900 bg-slate-900 text-white dark:border-slate-50 dark:bg-slate-50 dark:text-slate-950" : "border-slate-300 bg-white text-slate-900 hover:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50 dark:hover:border-slate-300",
+                  "border px-3.5 py-2.5 text-sm font-semibold uppercase transition",
+                  active ? "border-black bg-black text-white" : "border-slate-300 bg-white text-slate-900 hover:border-black",
                   !inStockForSize ? "opacity-50" : "",
                 ].join(" ")}
                 onClick={() => setSize(s)}
@@ -122,8 +122,8 @@ export function VariantSelector({ variants, basePrice, baseStock, onChange }: Pr
                 key={c}
                 type="button"
                 className={[
-                  "rounded-full border px-4 py-2 text-sm font-semibold transition",
-                  active ? "border-slate-900 bg-slate-900 text-white dark:border-slate-50 dark:bg-slate-50 dark:text-slate-950" : "border-slate-300 bg-white text-slate-900 hover:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50 dark:hover:border-slate-300",
+                  "border px-3.5 py-2.5 text-sm font-semibold uppercase transition",
+                  active ? "border-black bg-black text-white" : "border-slate-300 bg-white text-slate-900 hover:border-black",
                   !inStock ? "opacity-50" : "",
                 ].join(" ")}
                 onClick={() => setColor(c)}

@@ -66,7 +66,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link href={`/product/${product.id}`} prefetch={true}>
       <article className="group flex h-full flex-col cursor-pointer">
         {/* === IMAGEN CONTAINER === */}
-        <div className="relative w-full overflow-hidden rounded-lg transition-transform duration-300 group-hover:-translate-y-1">
+        <div className="relative w-full overflow-hidden transition-transform duration-300 group-hover:-translate-y-1">
           <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
             {/* Imagen principal */}
             {/* eslint-disable-next-line @next/next/no-img-element */}

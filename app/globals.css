@@ -26,6 +26,21 @@
   img {
     max-width: 100%;
     height: auto;
+    border-radius: 0;
+  }
+
+  /* Global reset for border-radius */
+  * {
+    border-radius: 0 !important;
+  }
+
+  /* Typography adjustments */
+  h1, h2, h3 {
+    letter-spacing: -0.5px;
+  }
+
+  button {
+    letter-spacing: 1px;
   }
 }
 
@@ -35,27 +50,24 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center bg-black px-4 py-3.5 text-sm font-semibold text-white uppercase transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-900;
-    @apply dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:hover:border-slate-300;
+    @apply inline-flex items-center justify-center border border-black bg-transparent px-4 py-3 text-sm font-semibold text-black uppercase transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900;
-    @apply dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-slate-50;
+    @apply inline-flex items-center justify-center px-4 py-3 text-sm font-semibold text-black uppercase transition hover:bg-black hover:text-white;
   }
 
   .input-base {
-    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-900;
+    @apply w-full border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-900;
     @apply dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50 dark:focus:border-slate-300;
   }
 
   .card-base {
-    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-soft;
-    @apply dark:border-slate-800 dark:bg-slate-900;
+    @apply p-5;
   }
 
   .page {
@@ -83,7 +95,7 @@
   }
 
   .loading-overlay__card {
-    @apply flex flex-col items-center gap-3 rounded-3xl bg-white/80 px-6 py-5 shadow-2xl shadow-slate-900/20;
+    @apply flex flex-col items-center gap-3 bg-white/80 px-6 py-5 shadow-2xl shadow-slate-900/20;
     backdrop-filter: blur(12px);
   }
 

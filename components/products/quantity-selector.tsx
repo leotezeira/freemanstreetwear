@@ -8,7 +8,7 @@ type QuantitySelectorProps = {
 
 export function QuantitySelector({ value, max, onChange }: QuantitySelectorProps) {
   return (
-    <div className="flex items-center rounded-xl border border-slate-300">
+    <div className="flex items-center border border-slate-300">
       <button
         type="button"
         className="h-11 w-11 text-lg"
