@@ -19,7 +19,7 @@ export default function PageTransition({ children }: PageTransitionProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Cambio de ruta: fade-out ? fade-in
+  // Cambio de ruta: fade-out -> fade-in
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;

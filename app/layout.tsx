@@ -16,7 +16,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es">
       <head>
-        {/* Script que evita el flash blanco en carga inicial */}
+        {/* Ensures the page displays only after the initial ready class is set */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -28,13 +28,13 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             `,
           }}
         />
-        {/* Preload fuentes críticas */}
+        {/* Preload critical fonts */}
         <link
           rel="preload"
           href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap"
           as="style"
         />
-        {/* Cache agresivo para imágenes estáticas */}
+        {/* Aggressive caching for static assets */}
         <meta httpEquiv="Cache-Control" content="public, max-age=31536000, immutable" />
       </head>
       <body className="min-h-screen bg-slate-50 pb-28 sm:pb-0">
