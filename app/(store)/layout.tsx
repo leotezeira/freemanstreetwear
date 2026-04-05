@@ -4,7 +4,7 @@ import { Footer } from "@/components/layout/footer";
 import { getSiteContent } from "@/lib/services/content.service";
 import { ToastProvider } from "@/components/ui/toast";
 import { CartDrawer } from "@/components/cart/CartDrawer";
-import { PageTransition } from "@/components/ui/page-transition";
+import PageTransition from "@/components/ui/page-transition";
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
   const content = await getSiteContent();

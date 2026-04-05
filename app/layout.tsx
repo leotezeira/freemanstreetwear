@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import PageTransition from "@/components/ui/page-transition";
 import "./globals.css";
 
 type RootLayoutProps = {
@@ -16,6 +17,18 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es">
       <head>
+        {/* Script que evita el flash blanco en carga inicial */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                document.addEventListener('DOMContentLoaded', function() {
+                  document.body.classList.add('ready');
+                });
+              })();
+            `,
+          }}
+        />
         {/* Preload fuentes críticas */}
         <link
           rel="preload"
@@ -25,7 +38,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         {/* Cache agresivo para imágenes estáticas */}
         <meta httpEquiv="Cache-Control" content="public, max-age=31536000, immutable" />
       </head>
-      <body className="min-h-screen bg-slate-50 pb-28 sm:pb-0">{children}</body>
+      <body className="min-h-screen bg-slate-50 pb-28 sm:pb-0">
+        {/* PageTransition envuelve todo el contenido para transiciones suaves */}
+        <PageTransition>{children}</PageTransition>
+      </body>
     </html>
   );
 }
