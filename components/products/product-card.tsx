@@ -6,8 +6,9 @@ import { useCartStore } from "@/lib/cart/store";
 import { useToast } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/icon";
 import { ShoppingCart } from "lucide-react";
-import { TRANSFER_DISCOUNT_PERCENT, BADGE_RULES } from "@/lib/config/pricing";
+import { BADGE_RULES } from "@/lib/config/pricing";
 import { StarRating } from "@/components/ratings/star-rating";
+import { calculateTransferPrice } from "@/lib/utils/transfer-pricing";
 
 type ProductCardProps = {
   product: Product;
@@ -29,11 +30,6 @@ function isNew(createdAt: string) {
   if (!Number.isFinite(ts)) return false;
   const days = (Date.now() - ts) / (1000 * 60 * 60 * 24);
   return days <= BADGE_RULES.NEW_IN_DAYS;
-}
-
-function getTransferPrice(price: number, percent: number) {
-  if (!Number.isFinite(price)) return price;
-  return Math.round(price * (1 - percent / 100));
 }
 
 function showDropBadge(createdAt: string) {
@@ -59,8 +55,7 @@ export function ProductCard({ product, transferDiscountPercent }: ProductCardPro
   const discountPct = getDiscountPercent(price, compareAt);
   const outOfStock = product.stock <= 0;
   const showNew = !outOfStock && !discountPct && isNew(product.created_at);
-  const discountPercent = transferDiscountPercent ?? TRANSFER_DISCOUNT_PERCENT;
-  const transferPrice = getTransferPrice(price, discountPercent);
+  const transferPrice = calculateTransferPrice(price, transferDiscountPercent);
   const hasDiscount = !!discountPct;
   const isDrop = !outOfStock && !discountPct && showDropBadge(product.created_at);
   const isLastUnits = !outOfStock && showLastUnits(product.stock);

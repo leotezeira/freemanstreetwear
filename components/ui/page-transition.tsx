@@ -10,35 +10,37 @@ interface PageTransitionProps {
 export default function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
-  const isFirstMount = useRef(true);
-  const prevPathname = useRef(pathname);
+  const prevPathname = useRef<string | null>(null);
 
-  // Primera carga: fade-in suave al montar
+  // Cada vez que cambia el pathname (incluida la primera carga), ocultar sin transición
+  // y hacer fade-in en el siguiente frame una vez que el DOM ya tiene el contenido nuevo.
   useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 30);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Cambio de ruta: fade-out -> fade-in
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
-
     if (pathname === prevPathname.current) return;
     prevPathname.current = pathname;
 
+    // Ocultar instantáneamente, sin animación
     setIsVisible(false);
-    const timer = setTimeout(() => setIsVisible(true), 300);
-    return () => clearTimeout(timer);
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const raf = requestAnimationFrame(() => {
+      // Pequeño delay para asegurar que el DOM se pintó antes del fade-in
+      timer = setTimeout(() => setIsVisible(true), 20);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer) clearTimeout(timer);
+    };
   }, [pathname]);
 
   return (
     <div
       style={{
         opacity: isVisible ? 1 : 0,
-        transition: "opacity 350ms cubic-bezier(0.4, 0, 0.2, 1)",
+        // Solo transicionar cuando aparece; al ocultar no hay animación
+        transition: isVisible
+          ? "opacity 400ms cubic-bezier(0.4, 0, 0.2, 1)"
+          : "none",
         willChange: "opacity",
       }}
     >

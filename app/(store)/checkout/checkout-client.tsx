@@ -10,6 +10,11 @@ import { CheckCircle2, LoaderCircle, Package2, Truck } from "lucide-react";
 import type { PaymentMethod } from "@/lib/services/payment-methods.service";
 import type { ShippingMethod } from "@/lib/services/shipping-methods.service";
 import provinciasData from "@/data/provincias.json";
+import {
+  calculateTransferPrice,
+  calculateTransferSubtotal,
+  clampTransferDiscountPercent,
+} from "@/lib/utils/transfer-pricing";
 
 type Step = 1 | 2 | 3;
 
@@ -35,6 +40,34 @@ type Provincia = {
 };
 
 const PROVINCES = provinciasData as Provincia[];
+const TRANSFER_PAYMENT_METHOD_ID = "transfer";
+
+type CustomerInfo = {
+  name: string;
+  email: string;
+  phone: string;
+  provinceCode: string;
+  localityName: string;
+  postalCode: string;
+  shippingAddress: string;
+};
+
+type ManualOrderPayload = {
+  customer: CustomerInfo;
+  items: Array<{ productId: string; quantity: number }>;
+  shipping: {
+    type: "D" | "S";
+    price: number;
+    agencyCode: string | null;
+  };
+};
+
+type PendingManualOrder = {
+  payload: ManualOrderPayload;
+  method: PaymentMethod;
+  discountedProductsSubtotal: number;
+  isTransferPayment: boolean;
+};
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
@@ -46,9 +79,14 @@ function formatMoney(value: number) {
 type Props = {
   paymentMethods: PaymentMethod[];
   shippingMethods: ShippingMethod[];
+  transferDiscountPercent: number;
 };
 
-export default function CheckoutClient({ paymentMethods, shippingMethods }: Props) {
+export default function CheckoutClient({
+  paymentMethods,
+  shippingMethods,
+  transferDiscountPercent: transferDiscountPercentProp,
+}: Props) {
   const router = useRouter();
   const toast = useToast();
   const cartItems = useCartStore((s) => s.items);
@@ -100,7 +138,9 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
   // Manual payment confirmation modal
   const [showManualPaymentModal, setShowManualPaymentModal] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
-  const [pendingManualOrder, setPendingManualOrder] = useState<any>(null);
+  const [pendingManualOrder, setPendingManualOrder] = useState<PendingManualOrder | null>(null);
+
+  const transferDiscountPercent = clampTransferDiscountPercent(transferDiscountPercentProp);
 
   const [customer, setCustomer] = useState({
     name: "",
@@ -128,7 +168,12 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
   const [selectedAgencyCode, setSelectedAgencyCode] = useState<string>("");
 
   const shipping = useMemo(() => selectedShippingPrice ?? 0, [selectedShippingPrice]);
-  const total = cartSubtotal + shipping;
+  const isTransferPaymentSelected = selectedPaymentMethod === TRANSFER_PAYMENT_METHOD_ID;
+  const discountedProductsSubtotal = isTransferPaymentSelected
+    ? calculateTransferSubtotal(cartItems, transferDiscountPercent)
+    : cartSubtotal;
+  const transferSavings = Math.max(0, cartSubtotal - discountedProductsSubtotal);
+  const total = discountedProductsSubtotal + shipping;
 
   async function loadBranchProvinces() {
     setBranchLoading(true);
@@ -349,6 +394,8 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
         setPendingManualOrder({
           payload,
           method,
+          discountedProductsSubtotal,
+          isTransferPayment: isTransferPaymentSelected,
         });
         setShowManualPaymentModal(true);
       }
@@ -364,7 +411,7 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
     
     setConfirmingPayment(true);
     try {
-      const { payload, method } = pendingManualOrder;
+      const { payload, method, isTransferPayment } = pendingManualOrder;
       
       const response = await fetch("/api/payments/manual-orders", {
         method: "POST",
@@ -390,7 +437,9 @@ export default function CheckoutClient({ paymentMethods, shippingMethods }: Prop
         items: cartItems.map((it) => ({
           name: it.name,
           quantity: it.quantity,
-          price: it.unitPrice,
+          price: isTransferPayment
+            ? calculateTransferPrice(it.unitPrice, transferDiscountPercent)
+            : it.unitPrice,
         })),
       });
       setShowManualPaymentModal(false);
@@ -989,7 +1038,7 @@ Visitanos en freemanstreetwear.com
                       Total a pagar
                     </p>
                     <p className="text-lg font-bold text-emerald-800 dark:text-emerald-300">
-                      ${(cartSubtotal + pendingManualOrder.payload.shipping.price).toLocaleString("es-AR")}
+                      ${(pendingManualOrder.discountedProductsSubtotal + pendingManualOrder.payload.shipping.price).toLocaleString("es-AR")}
                     </p>
                   </div>
                 </div>
@@ -1033,6 +1082,12 @@ Visitanos en freemanstreetwear.com
               <span>Productos</span>
               <span>{formatMoney(cartSubtotal)}</span>
             </div>
+            {isTransferPaymentSelected && transferSavings > 0 && (
+              <div className="flex items-center justify-between text-xs font-semibold text-emerald-700">
+                <span>Descuento transferencia ({transferDiscountPercent}%)</span>
+                <span>-{formatMoney(transferSavings)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span>Envío</span>
               <span>{formatMoney(shipping)}</span>

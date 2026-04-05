@@ -3,6 +3,8 @@ import { createPreferenceSchema } from "@/lib/validations/payment";
 import { getProductById } from "@/lib/services/products.service";
 import { createOrderWithItems } from "@/lib/services/orders.service";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getTransferDiscountPercent } from "@/lib/services/payment-settings.service";
+import { calculateTransferPrice } from "@/lib/utils/transfer-pricing";
 
 function createOrderNumber() {
   const date = new Date();
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
     }
     console.log("[manual-orders] Método encontrado:", method.label);
 
+    const transferDiscountPercent = await getTransferDiscountPercent();
     const orderItems: Array<{
       productId: string;
       quantity: number;
@@ -101,10 +104,16 @@ export async function POST(request: Request) {
         }
       }
 
+      const basePrice = Number(product.price);
+      const isTransferPayment = method.id === "transfer";
+      const finalPrice = isTransferPayment
+        ? calculateTransferPrice(basePrice, transferDiscountPercent)
+        : basePrice;
+
       orderItems.push({
         productId: product.id,
         quantity: item.quantity,
-        priceAtPurchase: Number(product.price),
+        priceAtPurchase: finalPrice,
         productName: product.name,
         variantId: itemWithVariant.variantId ?? undefined,
         size: variantSize,
