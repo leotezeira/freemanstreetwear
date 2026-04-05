@@ -9,12 +9,22 @@ interface PageTransitionProps {
 
 export default function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
-  const [isVisible, setIsVisible] = useState(false);
+  // Arranca visible para no ocultar el SSR mientras hidrata (evita pantallas vacías en móviles lentos).
+  const [isVisible, setIsVisible] = useState(true);
   const prevPathname = useRef<string | null>(null);
+  const hasMounted = useRef(false);
 
   // Cada vez que cambia el pathname (incluida la primera carga), ocultar sin transición
   // y hacer fade-in en el siguiente frame una vez que el DOM ya tiene el contenido nuevo.
   useEffect(() => {
+    // Primera carga: no ocultar; solo registrar pathname.
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      prevPathname.current = pathname;
+      setIsVisible(true);
+      return;
+    }
+
     if (pathname === prevPathname.current) return;
     prevPathname.current = pathname;
 
