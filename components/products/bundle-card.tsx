@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import type { Bundle } from "@/types/bundle";
+import type { BundleWithItems } from "@/types/bundle";
 import { StarRating } from "@/components/ratings/star-rating";
 
 type BundleCardProps = {
-  bundle: Bundle;
+  bundle: BundleWithItems;
 };
 
 function formatPrice(value: number) {
@@ -57,7 +57,7 @@ export function BundleCard({ bundle }: BundleCardProps) {
 
           {/* Cantidad de productos */}
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {bundle.bundle_items.length} producto{bundle.bundle_items.length !== 1 ? "s" : ""}
+            {(bundle.bundle_items?.length ?? 0)} producto{(bundle.bundle_items?.length ?? 0) !== 1 ? "s" : ""}
           </p>
 
           {/* Precio */}
