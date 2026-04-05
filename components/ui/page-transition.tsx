@@ -9,40 +9,30 @@ interface PageTransitionProps {
 
 export default function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
-  const [isVisible, setIsVisible] = useState(true);
-  const [displayChildren, setDisplayChildren] = useState(children);
+  const [isVisible, setIsVisible] = useState(false);
   const isFirstMount = useRef(true);
+  const prevPathname = useRef(pathname);
 
-  // Primera carga: mantener visible (no flash de contenido oculto)
+  // Primera carga: fade-in suave al montar
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 30);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Cambio de ruta: fade-out ? fade-in
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;
-      // El contenido ya está visible desde el inicio
       return;
     }
-  }, []);
 
-  // Cambio de ruta: fade-out → swap → fade-in
-  useEffect(() => {
-    if (isFirstMount.current) return;
+    if (pathname === prevPathname.current) return;
+    prevPathname.current = pathname;
 
     setIsVisible(false);
-
-    const swapTimer = setTimeout(() => {
-      setDisplayChildren(children);
-      setIsVisible(true);
-    }, 280); // Duración del fade-out
-
-    return () => clearTimeout(swapTimer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const timer = setTimeout(() => setIsVisible(true), 300);
+    return () => clearTimeout(timer);
   }, [pathname]);
-
-  // Sincronizar children si cambian dentro de la misma ruta
-  useEffect(() => {
-    if (isVisible) {
-      setDisplayChildren(children);
-    }
-  }, [children, isVisible]);
 
   return (
     <div
@@ -52,8 +42,7 @@ export default function PageTransition({ children }: PageTransitionProps) {
         willChange: "opacity",
       }}
     >
-      {displayChildren}
+      {children}
     </div>
   );
 }
-

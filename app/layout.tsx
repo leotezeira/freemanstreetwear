@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import PageTransition from "@/components/ui/page-transition";
 import "./globals.css";
 
 type RootLayoutProps = {
@@ -29,18 +28,17 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             `,
           }}
         />
-        {/* Preload fuentes cr√≠ticas */}
+        {/* Preload fuentes crÌticas */}
         <link
           rel="preload"
           href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap"
           as="style"
         />
-        {/* Cache agresivo para im√°genes est√°ticas */}
+        {/* Cache agresivo para im·genes est·ticas */}
         <meta httpEquiv="Cache-Control" content="public, max-age=31536000, immutable" />
       </head>
       <body className="min-h-screen bg-slate-50 pb-28 sm:pb-0">
-        {/* PageTransition envuelve todo el contenido para transiciones suaves */}
-        <PageTransition>{children}</PageTransition>
+        {children}
       </body>
     </html>
   );
