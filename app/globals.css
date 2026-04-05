@@ -90,6 +90,20 @@ body.ready {
     @apply text-xs uppercase tracking-[1px];
   }
 
+  .bundle-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bundle-title {
+    @apply text-sm font-semibold uppercase tracking-[1.5px];
+  }
+
+  .bundle-price {
+    @apply text-xs uppercase tracking-[1px];
+  }
+
   .btn-primary {
     @apply inline-flex items-center justify-center bg-black px-4 py-3.5 text-sm font-semibold text-white uppercase transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-60;
   }

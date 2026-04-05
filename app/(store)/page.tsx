@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/products/product-card";
+import { BundleCard } from "@/components/products/bundle-card";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { getSiteContent } from "@/lib/services/content.service";
 import { getActiveBanners, getBannerSettings } from "@/lib/services/hero-banners.service";
@@ -137,58 +138,9 @@ export default async function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-            {bundles.slice(0, 4).map((bundle) => {
-              const savings = bundle.compare_at_price ? bundle.compare_at_price - bundle.price : 0;
-              const savingsPercent = bundle.compare_at_price ? Math.round((savings / bundle.compare_at_price) * 100) : 0;
-
-              return (
-                <div key={bundle.id} className="card-base space-y-3 transition hover:shadow-lg">
-                  <Link
-                    href={`/bundles/${bundle.slug ?? "#"}`}
-                    className="group block"
-                  >
-                    <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900">
-                      {bundle.image_path ? (
-                        <img
-                          src={bundle.image_path}
-                          alt={bundle.name}
-                          className="h-full w-full object-cover transition group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-slate-400">
-                          <span className="text-sm">Sin imagen</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-slate-50 group-hover:underline">{bundle.name}</h3>
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{bundle.description ?? "Combo especial de productos"}</p>
-                    </div>
-
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-lg font-bold text-slate-900 dark:text-slate-50">{formatMoney(bundle.price)}</span>
-                      {bundle.compare_at_price && (
-                        <>
-                          <span className="text-sm line-through text-slate-400">{formatMoney(bundle.compare_at_price)}</span>
-                          {savings > 0 && (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-                              Ahorrás {savingsPercent}%
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-slate-500">{bundle.bundle_items.length} productos</p>
-                  </Link>
-
-                  <div className="border-t border-slate-200 pt-2 dark:border-slate-700">
-                    <StarRating bundleId={bundle.id} />
-                  </div>
-                </div>
-              );
-            })}
+            {bundles.slice(0, 4).map((bundle) => (
+              <BundleCard key={bundle.id} bundle={bundle} />
+            ))}
           </div>
         </section>
       ) : null}
