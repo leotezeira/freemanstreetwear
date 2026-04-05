@@ -1,8 +1,9 @@
 import { TRANSFER_DISCOUNT_PERCENT } from "@/lib/config/pricing";
 
 export function clampTransferDiscountPercent(value?: number) {
-  if (!Number.isFinite(value)) return TRANSFER_DISCOUNT_PERCENT;
-  return Math.max(0, Math.min(100, value));
+  const num = Number(value);
+  if (!Number.isFinite(num)) return TRANSFER_DISCOUNT_PERCENT;
+  return Math.max(0, Math.min(100, num));
 }
 
 export function calculateTransferPrice(price: number, discountPercent?: number) {
