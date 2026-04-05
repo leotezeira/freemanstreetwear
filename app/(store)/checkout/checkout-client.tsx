@@ -303,7 +303,7 @@ export default function CheckoutClient({
           quantity: it.quantity,
         })),
         shipping: {
-          type: selectedShippingType,
+          type: selectedShippingType as "D" | "S",
           price: shipping,
           agencyCode: selectedShippingType === "S" ? selectedAgencyCode : null,
         },
