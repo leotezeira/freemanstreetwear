@@ -9,17 +9,16 @@ interface PageTransitionProps {
 
 export default function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const [displayChildren, setDisplayChildren] = useState(children);
   const isFirstMount = useRef(true);
 
-  // Primera carga: fade-in suave al montar
+  // Primera carga: mantener visible (no flash de contenido oculto)
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;
-      // Pequeño delay para asegurar que el DOM ya está pintado
-      const timer = setTimeout(() => setIsVisible(true), 30);
-      return () => clearTimeout(timer);
+      // El contenido ya está visible desde el inicio
+      return;
     }
   }, []);
 
