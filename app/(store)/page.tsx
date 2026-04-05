@@ -6,6 +6,7 @@ import { getSiteContent } from "@/lib/services/content.service";
 import { getActiveBanners, getBannerSettings } from "@/lib/services/hero-banners.service";
 import { getActiveBundles } from "@/lib/services/bundles.service";
 import { getFeaturedProducts, searchProductsByName } from "@/lib/services/products.service";
+import { getTransferDiscountPercent } from "@/lib/services/payment-settings.service";
 import { StarRating } from "@/components/ratings/star-rating";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ function formatMoney(value: number) {
 
 export default async function HomePage() {
   const content = await getSiteContent();
+  const transferDiscountPercent = await getTransferDiscountPercent();
   const banners = await getActiveBanners().catch(() => []);
   const bundles = await getActiveBundles().catch(() => []);
   const bannerSettings = await getBannerSettings().catch(() => ({ interval_ms: 5000 }));
@@ -118,7 +120,11 @@ export default async function HomePage() {
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {showFeatured.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                transferDiscountPercent={transferDiscountPercent}
+              />
             ))}
           </div>
         )}
@@ -160,7 +166,11 @@ export default async function HomePage() {
         {!loadError ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {latestProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                transferDiscountPercent={transferDiscountPercent}
+              />
             ))}
           </div>
         ) : null}

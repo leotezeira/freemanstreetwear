@@ -11,6 +11,7 @@ import { StarRating } from "@/components/ratings/star-rating";
 
 type ProductCardProps = {
   product: Product;
+  transferDiscountPercent?: number;
 };
 
 function formatPrice(value: number) {
@@ -30,8 +31,9 @@ function isNew(createdAt: string) {
   return days <= BADGE_RULES.NEW_IN_DAYS;
 }
 
-function getTransferPrice(price: number) {
-  return Math.round(price * (1 - TRANSFER_DISCOUNT_PERCENT / 100));
+function getTransferPrice(price: number, percent: number) {
+  if (!Number.isFinite(price)) return price;
+  return Math.round(price * (1 - percent / 100));
 }
 
 function showDropBadge(createdAt: string) {
@@ -45,7 +47,7 @@ function showLastUnits(stock: number) {
   return stock > 0 && stock <= BADGE_RULES.LAST_UNITS_THRESHOLD;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, transferDiscountPercent }: ProductCardProps) {
   const toast = useToast();
   const addToCart = useCartStore((s) => s.addToCart);
   const openDrawer = useCartStore((s) => s.openDrawer);
@@ -57,7 +59,8 @@ export function ProductCard({ product }: ProductCardProps) {
   const discountPct = getDiscountPercent(price, compareAt);
   const outOfStock = product.stock <= 0;
   const showNew = !outOfStock && !discountPct && isNew(product.created_at);
-  const transferPrice = getTransferPrice(price);
+  const discountPercent = transferDiscountPercent ?? TRANSFER_DISCOUNT_PERCENT;
+  const transferPrice = getTransferPrice(price, discountPercent);
   const hasDiscount = !!discountPct;
   const isDrop = !outOfStock && !discountPct && showDropBadge(product.created_at);
   const isLastUnits = !outOfStock && showLastUnits(product.stock);

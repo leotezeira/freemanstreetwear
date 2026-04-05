@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
+import { revalidatePath } from "next/cache";
 
 const PRODUCT_IMAGES_BUCKET = process.env.PRODUCT_IMAGES_BUCKET ?? "product-images";
 const MAX_PRODUCT_IMAGE_BYTES = Number(process.env.MAX_PRODUCT_IMAGE_BYTES ?? String(4 * 1024 * 1024));
@@ -168,6 +169,96 @@ export async function PATCH(request: Request, context: { params: Promise<{ produ
     }
 
     return NextResponse.json({ ok: true, primaryImageId: targetId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ productId: string }> }) {
+  try {
+    const { productId } = await context.params;
+    const payload = (await request.json().catch(() => null)) as any;
+    const imageId = payload?.imageId ? String(payload.imageId) : null;
+
+    if (!productId) {
+      return NextResponse.json({ error: "Missing productId" }, { status: 400 });
+    }
+
+    if (!imageId) {
+      return NextResponse.json({ error: "Missing imageId" }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    const { data: existingImage, error: selectError } = await supabase
+      .from("product_images")
+      .select("id, image_path, is_primary")
+      .eq("product_id", productId)
+      .eq("id", imageId)
+      .maybeSingle();
+
+    if (selectError) {
+      return NextResponse.json({ error: selectError.message }, { status: 500 });
+    }
+
+    if (!existingImage) {
+      return NextResponse.json({ error: "Imagen no encontrada" }, { status: 404 });
+    }
+
+    if (existingImage.image_path) {
+      const { error: removeError } = await supabase.storage
+        .from(PRODUCT_IMAGES_BUCKET)
+        .remove([existingImage.image_path]);
+
+      if (removeError) {
+        console.warn(
+          "[api:admin:products:images:delete] No se pudo eliminar el archivo:",
+          removeError.message
+        );
+      }
+    }
+
+    const { error: deleteError } = await supabase
+      .from("product_images")
+      .delete()
+      .eq("id", imageId)
+      .eq("product_id", productId);
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    if (existingImage.is_primary) {
+      const { data: nextImage, error: nextError } = await supabase
+        .from("product_images")
+        .select("id")
+        .eq("product_id", productId)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (nextError) {
+        return NextResponse.json({ error: nextError.message }, { status: 500 });
+      }
+
+      if (nextImage?.id) {
+        const { error: setPrimaryError } = await supabase
+          .from("product_images")
+          .update({ is_primary: true })
+          .eq("id", nextImage.id);
+
+        if (setPrimaryError) {
+          return NextResponse.json({ error: setPrimaryError.message }, { status: 500 });
+        }
+      }
+    }
+
+    revalidatePath("/admin/panel-admin/products");
+    revalidatePath("/shop");
+    revalidatePath("/");
+
+    return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message }, { status: 500 });

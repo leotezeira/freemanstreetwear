@@ -1,5 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  getTransferDiscountPercent,
+  setTransferDiscountPercent,
+} from "@/lib/services/payment-settings.service";
 
 type PaymentMethod = {
   id: string;
@@ -39,6 +43,20 @@ async function savePaymentMethods(formData: FormData) {
   revalidatePath("/checkout");
 }
 
+async function updateTransferDiscount(formData: FormData) {
+  "use server";
+
+  const raw = formData.get("transferDiscountPercent");
+  const parsed = typeof raw === "string" ? Number(raw) : Number(raw ?? 0);
+  const percent = Number.isFinite(parsed) ? parsed : 0;
+
+  await setTransferDiscountPercent(percent);
+
+  revalidatePath("/admin/panel-admin/payments");
+  revalidatePath("/");
+  revalidatePath("/shop");
+}
+
 export default async function AdminPaymentsPage() {
   const supabase = getSupabaseAdminClient();
   const hasMpToken = Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN);
@@ -50,6 +68,7 @@ export default async function AdminPaymentsPage() {
     .maybeSingle();
 
   const methods = (data?.value as PaymentMethod[]) ?? [];
+  const transferDiscountPercent = await getTransferDiscountPercent();
 
   return (
     <section className="space-y-6">
@@ -79,6 +98,37 @@ export default async function AdminPaymentsPage() {
       </div>
 
       {/* Métodos de pago */}
+      <form action={updateTransferDiscount} className="card-base space-y-4">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold">Transferencia bancaria</h2>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Ofrecer descuento
+            </span>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Ajustá el porcentaje que se muestra automáticamente como precio con transferencia.
+          </p>
+        </div>
+        <div className="grid gap-1">
+          <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Descuento (%)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            name="transferDiscountPercent"
+            defaultValue={transferDiscountPercent ?? 0}
+            className="input-base max-w-[140px]"
+          />
+        </div>
+        <button className="btn-primary w-full sm:w-auto" type="submit">
+          Guardar descuento
+        </button>
+      </form>
+
       {methods.length === 0 ? (
         <div className="card-base">
           <p className="text-sm text-slate-600 dark:text-slate-300">

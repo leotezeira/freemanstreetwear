@@ -3,6 +3,7 @@ import { searchProductsByName } from "@/lib/services/products.service";
 import { ProductCard } from "@/components/products/product-card";
 import { getSupabasePublicServerClient } from "@/lib/supabase/public";
 import { getActiveBundles } from "@/lib/services/bundles.service";
+import { getTransferDiscountPercent } from "@/lib/services/payment-settings.service";
 import { ClientImage } from "@/components/ui/client-image";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const showType = (type ?? "all") as "all" | "products" | "bundles";
 
   const supabase = getSupabasePublicServerClient();
+  const transferDiscountPercent = await getTransferDiscountPercent();
   const { data: categoriesRow } = await supabase.from("site_content").select("value").eq("key", "categories").maybeSingle();
   const categories = ((categoriesRow?.value as string[] | null) ?? []).filter(Boolean);
 
@@ -272,7 +274,13 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                   );
                 }
 
-                return <ProductCard key={item.id} product={item} />;
+              return (
+                <ProductCard
+                  key={item.id}
+                  product={item}
+                  transferDiscountPercent={transferDiscountPercent}
+                />
+              );
               })}
             </div>
           )}

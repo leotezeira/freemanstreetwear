@@ -22,6 +22,8 @@ function money(value: number) {
   return `$${Number(value).toLocaleString("es-AR")}`;
 }
 
+const PRODUCT_IMAGES_BUCKET = process.env.PRODUCT_IMAGES_BUCKET ?? "product-images";
+
 async function bulkSetActive(formData: FormData) {
   "use server";
 
@@ -104,8 +106,29 @@ async function removeProduct(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const supabase = getSupabaseAdminClient();
 
-  // Desvincular el producto de order_items para preservar historial de órdenes
-  await supabase.from("order_items").update({ product_id: null }).eq("product_id", id);
+  const { data: imageRows, error: imageError } = await supabase
+    .from("product_images")
+    .select("image_path")
+    .eq("product_id", id);
+
+  if (imageError) {
+    console.error("[removeProduct] No se pudieron leer las imágenes del producto:", imageError.message);
+  }
+
+  const imagePaths = (imageRows ?? [])
+    .map((row) => row.image_path)
+    .filter((path): path is string => Boolean(path));
+
+  if (imagePaths.length) {
+    const { error: storageError } = await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove(imagePaths);
+
+    if (storageError) {
+      console.error(
+        "[removeProduct] No se pudieron eliminar las imágenes del storage:",
+        storageError.message
+      );
+    }
+  }
 
   const { error } = await supabase.from("products").delete().eq("id", id);
   if (error) throw new Error(error.message);

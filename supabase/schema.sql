@@ -90,7 +90,7 @@ where shipping_id is not null;
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references public.orders(id) on delete cascade,
-  product_id uuid not null references public.products(id),
+  product_id uuid references public.products(id) on delete set null,
   quantity integer not null check (quantity > 0),
   price_at_purchase numeric(12,2) not null check (price_at_purchase >= 0)
 );
@@ -348,7 +348,8 @@ values
   (
     'home_content',
     '{"heroTitle":"Streetwear premium para todos los días","heroSubtitle":"Colecciones minimalistas con identidad urbana y entrega rápida.","heroCtaLabel":"Comprar ahora","heroCtaHref":"/shop","heroImageUrl":"https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80","promoTitle":"Envío fijo a todo el país","promoSubtitle":"Checkout simple y pago seguro con MercadoPago.","newsletterTitle":"Recibí novedades","newsletterSubtitle":"Suscribite para enterarte de lanzamientos y reposiciones."}'::jsonb
-  )
+  ),
+  ('transfer_discount_percent', '10'::jsonb)
 on conflict (key) do nothing;
 
 -- Hero banners style fields (opcional, no interfiere si no existe la tabla)

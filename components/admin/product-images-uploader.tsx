@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 
 type ExistingImage = {
   id: string;
@@ -24,6 +25,7 @@ export function ProductImagesUploader({ productId, existingImages }: ProductImag
   const [setPrimary, setSetPrimary] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
 
   const existingCount = existingImages?.length ?? 0;
   const remaining = Math.max(0, MAX_IMAGES_PER_PRODUCT - existingCount);
@@ -123,6 +125,47 @@ export function ProductImagesUploader({ productId, existingImages }: ProductImag
     }
   }
 
+  async function handleDeleteImage(imageId: string) {
+    if (!window.confirm("¿Eliminar esta imagen?")) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setDeletingImageId(imageId);
+
+    try {
+      const response = await fetch(`/api/admin/products/${productId}/images`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ imageId }),
+      });
+
+      const rawText = await response.text().catch(() => "");
+      const body = (() => {
+        try {
+          return rawText ? (JSON.parse(rawText) as any) : null;
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!response.ok) {
+        const trimmed = rawText?.trim() ?? "";
+        const looksLikeHtml =
+          trimmed.startsWith("<") || trimmed.toLowerCase().includes("<!doctype html");
+        const fallback = trimmed && !looksLikeHtml ? trimmed.slice(0, 300) : `${response.status} ${response.statusText}`.trim();
+        throw new Error(body?.error ?? fallback ?? "No se pudo eliminar la imagen");
+      }
+
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo eliminar la imagen");
+    } finally {
+      setDeletingImageId(null);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -166,6 +209,19 @@ export function ProductImagesUploader({ productId, existingImages }: ProductImag
                 alt="Imagen producto"
                 className="h-20 w-full rounded-lg border border-slate-200 object-cover"
               />
+              <button
+                type="button"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow hover:bg-red-500 hover:text-white disabled:cursor-wait disabled:opacity-60"
+                onClick={() => handleDeleteImage(img.id)}
+                disabled={Boolean(deletingImageId) || loading}
+                aria-label="Eliminar imagen"
+              >
+                {deletingImageId === img.id ? (
+                  <span className="text-[10px] font-semibold">...</span>
+                ) : (
+                  <Trash2 size={14} />
+                )}
+              </button>
               {img.is_primary ? (
                 <span className="absolute left-1 top-1 rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white">
                   Principal

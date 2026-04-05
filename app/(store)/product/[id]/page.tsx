@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { RefreshCcw, ShieldCheck, Truck } from "lucide-react";
 import { ProductDetailActions } from "@/components/products/product-detail-actions";
 import { ProductCard } from "@/components/products/product-card";
+import { getTransferDiscountPercent } from "@/lib/services/payment-settings.service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   if (!detail || !detail.product.is_active) {
     notFound();
   }
+
+  const transferDiscountPercent = await getTransferDiscountPercent();
 
   const { product, images, variants } = detail;
   const galleryImages = images
@@ -114,7 +117,11 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           <h2 className="text-2xl font-bold tracking-tight">Productos relacionados</h2>
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {related.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              <ProductCard
+                key={p.id}
+                product={p}
+                transferDiscountPercent={transferDiscountPercent}
+              />
             ))}
           </div>
         </section>
