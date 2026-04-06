@@ -1,4 +1,4 @@
-"use client";
+Ôªø"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Infinity as InfinityIcon, Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
@@ -59,10 +59,12 @@ export default function AdminProductCarouselPage() {
 
       setItems(
         Array.isArray(carouselBody?.items)
-          ? (carouselBody.items as CarouselItem[]).map((item, idx) => ({
-              ...item,
-              sort_order: item?.sort_order ?? idx,
-            }))
+          ? (carouselBody.items as CarouselItem[])
+              .map((item, idx) => ({
+                ...item,
+                sort_order: item?.sort_order ?? idx,
+              }))
+              .filter((item) => !!item.products)
           : []
       );
       setProducts(Array.isArray(productsBody?.products) ? (productsBody.products as Product[]) : []);
@@ -70,7 +72,7 @@ export default function AdminProductCarouselPage() {
       toast.push({
         variant: "error",
         title: "Error",
-        description: e instanceof Error ? e.message : "No se pudo cargar la informaciÛn",
+        description: e instanceof Error ? e.message : "No se pudo cargar la informaci√≥n",
       });
     } finally {
       setLoading(false);
@@ -83,7 +85,7 @@ export default function AdminProductCarouselPage() {
 
   function addProduct(product: Product) {
     if (items.some((item) => item.product_id === product.id)) {
-      toast.push({ variant: "error", title: "Duplicado", description: "Ese producto ya est· en el carrusel" });
+      toast.push({ variant: "error", title: "Duplicado", description: "Ese producto ya est√° en el carrusel" });
       return;
     }
     setItems((prev) =>
@@ -157,7 +159,7 @@ export default function AdminProductCarouselPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight">Carrusel de productos</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Seleccion· los productos que se mueven de forma infinita en home.
+            Selecci√≥n actual \n            Arrastr√° el orden (o usa las flechas) y quit√° los que no quieras mostrar.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -186,14 +188,12 @@ export default function AdminProductCarouselPage() {
         <div className="card-base space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold">SelecciÛn actual</h2>
+              <h2 className="text-lg font-bold">Selecci√≥n actual</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Arrastr· el orden (o usa las flechas) y quit· los que no quieras mostrar.
+                Arrastr√° el orden (o usa las flechas) y quit√° los que no quieras mostrar.
               </p>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-              {items.length} productos
-            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">{items.length} productos</span>
           </div>
 
           {loading ? (
@@ -204,61 +204,29 @@ export default function AdminProductCarouselPage() {
             </div>
           ) : !items.length ? (
             <div className="card-base border border-dashed border-slate-300 text-center dark:border-slate-800">
-              <p className="font-semibold text-slate-700 dark:text-slate-200">TodavÌa no hay productos en el carrusel</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Agreg· productos desde la columna derecha.</p>
+              <p className="font-semibold text-slate-700 dark:text-slate-200">Todav√≠a no hay productos en el carrusel</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Agreg√° productos desde la columna derecha.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {items.map((item, idx) => (
-                <div
-                  key={item.product_id}
-                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
-                >
+                <div key={item.product_id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
                   <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900">
-                    <ClientImage
-                      src={item.products?.primary_image_url ?? null}
-                      alt={item.products?.name ?? "Producto"}
-                      className="h-full w-full object-cover"
-                    />
+                    <ClientImage src={item.products?.primary_image_url ?? null} alt={item.products?.name ?? "Producto"} className="h-full w-full object-cover" />
                   </div>
-
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">
-                      {item.products?.name ?? "Producto sin nombre"}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {item.products?.category ?? "Sin categorÌa"} ∑ {formatPrice(Number(item.products?.price ?? 0))}
-                    </p>
-                    <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                      Orden #{idx + 1} {item.products?.is_active ? "" : "∑ Inactivo"}
-                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">{item.products?.name ?? "Producto sin nombre"}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.products?.category ?? "Sin categor√≠a"} ¬∑ {formatPrice(Number(item.products?.price ?? 0))}</p>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400">Orden #{idx + 1} {item.products?.is_active ? "" : "¬∑ Inactivo"}</p>
                   </div>
-
                   <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      className="rounded-lg p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800"
-                      onClick={() => move(item.product_id, "up")}
-                      disabled={idx === 0}
-                      title="Subir"
-                    >
+                    <button type="button" className="rounded-lg p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800" onClick={() => move(item.product_id, "up")} disabled={idx === 0} title="Subir">
                       <Icon icon={ArrowUp} className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      className="rounded-lg p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800"
-                      onClick={() => move(item.product_id, "down")}
-                      disabled={idx === items.length - 1}
-                      title="Bajar"
-                    >
+                    <button type="button" className="rounded-lg p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800" onClick={() => move(item.product_id, "down")} disabled={idx === items.length - 1} title="Bajar">
                       <Icon icon={ArrowDown} className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/40"
-                      onClick={() => removeProduct(item.product_id)}
-                      title="Quitar"
-                    >
+                    <button type="button" className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/40" onClick={() => removeProduct(item.product_id)} title="Quitar">
                       <Icon icon={Trash2} className="h-4 w-4 text-red-600" />
                     </button>
                   </div>
@@ -272,19 +240,13 @@ export default function AdminProductCarouselPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">Agregar productos</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Busc· entre los productos activos.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Busc√° entre los productos activos.</p>
             </div>
           </div>
 
           <div className="relative">
             <Icon icon={Search} className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o categorÌa"
-              className="input-base rounded-xl pl-9 pr-3"
-            />
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre o categor√≠a" className="input-base rounded-xl pl-9 pr-3" />
           </div>
 
           {loading ? (
@@ -298,26 +260,17 @@ export default function AdminProductCarouselPage() {
           ) : (
             <div className="space-y-2">
               {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/80"
-                >
+                <div key={product.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/80">
                   <div className="flex items-center gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
                       <ClientImage src={product.primary_image_url ?? null} alt={product.name} className="h-full w-full object-cover" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{product.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {product.category ?? "Sin categorÌa"} ∑ {formatPrice(product.price)}
-                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{product.category ?? "Sin categor√≠a"} ¬∑ {formatPrice(product.price)}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-secondary flex items-center gap-2 px-3 py-2"
-                    onClick={() => addProduct(product)}
-                  >
+                  <button type="button" className="btn-secondary flex items-center gap-2 px-3 py-2" onClick={() => addProduct(product)}>
                     <Icon icon={Plus} className="h-4 w-4" />
                     Agregar
                   </button>
