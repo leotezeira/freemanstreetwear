@@ -2,12 +2,14 @@ import Link from "next/link";
 import { ProductCard } from "@/components/products/product-card";
 import { BundleCard } from "@/components/products/bundle-card";
 import { HeroCarousel } from "@/components/home/hero-carousel";
+import { ProductCarousel } from "@/components/home/product-carousel";
 import { getSiteContent } from "@/lib/services/content.service";
 import { getActiveBanners, getBannerSettings } from "@/lib/services/hero-banners.service";
 import { getActiveBundles } from "@/lib/services/bundles.service";
 import { getFeaturedProducts, searchProductsByName } from "@/lib/services/products.service";
 import { getTransferDiscountPercent } from "@/lib/services/payment-settings.service";
 import { StarRating } from "@/components/ratings/star-rating";
+import { getActiveCarouselProducts } from "@/lib/services/product-carousel.service";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,7 @@ export default async function HomePage() {
   const banners = await getActiveBanners().catch(() => []);
   const bundles = await getActiveBundles().catch(() => []);
   const bannerSettings = await getBannerSettings().catch(() => ({ interval_ms: 5000 }));
+  const carouselProducts = await getActiveCarouselProducts().catch(() => []);
 
   // Conteo de visitas (cada carga de home suma +1)
   if (process.env.NODE_ENV === "production") {
@@ -99,6 +102,11 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* Carrusel infinito */}
+      {carouselProducts.length > 0 ? (
+        <ProductCarousel products={carouselProducts} transferDiscountPercent={transferDiscountPercent} />
+      ) : null}
 
       {/* Destacados */}
       <section className="app-container py-8">

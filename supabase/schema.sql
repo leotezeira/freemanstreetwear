@@ -59,6 +59,17 @@ create table if not exists public.product_images (
 create index if not exists idx_product_images_product_id on public.product_images(product_id);
 create index if not exists idx_product_images_primary on public.product_images(product_id, is_primary);
 
+create table if not exists public.product_carousel_items (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists idx_product_carousel_unique_product on public.product_carousel_items (product_id);
+create index if not exists idx_product_carousel_sort on public.product_carousel_items (sort_order);
+
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   order_number text,
@@ -140,6 +151,7 @@ alter table public.admins enable row level security;
 alter table public.site_content enable row level security;
 alter table public.product_variants enable row level security;
 alter table public.product_images enable row level security;
+alter table public.product_carousel_items enable row level security;
 alter table public.carts enable row level security;
 alter table public.shipping_presets enable row level security;
 
@@ -163,6 +175,13 @@ on public.product_images
 for select
 to anon, authenticated
 using (exists (select 1 from public.products p where p.id = product_id and p.is_active = true));
+
+drop policy if exists "Public read active carousel" on public.product_carousel_items;
+create policy "Public read active carousel"
+on public.product_carousel_items
+for select
+to anon, authenticated
+using (is_active = true);
 
 drop policy if exists "Admins full access products" on public.products;
 create policy "Admins full access products"
@@ -207,6 +226,26 @@ with check (
 drop policy if exists "Admins full access product images" on public.product_images;
 create policy "Admins full access product images"
 on public.product_images
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.admins a
+    where lower(a.email) = lower((auth.jwt() ->> 'email')::text)
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.admins a
+    where lower(a.email) = lower((auth.jwt() ->> 'email')::text)
+  )
+);
+
+drop policy if exists "Admins full access product carousel" on public.product_carousel_items;
+create policy "Admins full access product carousel"
+on public.product_carousel_items
 for all
 to authenticated
 using (

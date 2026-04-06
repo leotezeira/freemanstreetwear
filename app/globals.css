@@ -321,7 +321,63 @@ body.ready {
     background: linear-gradient(to left, #111827, rgba(17, 24, 39, 0));
   }
 
+  .product-marquee {
+    position: relative;
+    overflow: hidden;
+    padding-block: 12px;
+  }
+
+  .product-marquee::before,
+  .product-marquee::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 96px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .product-marquee::before {
+    left: 0;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+  }
+
+  .dark .product-marquee::before {
+    background: linear-gradient(90deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0));
+  }
+
+  .product-marquee::after {
+    right: 0;
+    background: linear-gradient(270deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+  }
+
+  .dark .product-marquee::after {
+    background: linear-gradient(270deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0));
+  }
+
+  .product-marquee-track {
+    display: flex;
+    gap: 16px;
+    width: max-content;
+    animation: product-marquee var(--marquee-duration, 28s) linear infinite;
+  }
+
+  .product-marquee-item {
+    width: 240px;
+    flex-shrink: 0;
+  }
+
   @keyframes scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes product-marquee {
     from {
       transform: translateX(0);
     }

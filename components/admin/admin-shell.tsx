@@ -9,6 +9,7 @@ import {
   BookOpen,
   CreditCard,
   Folder,
+  Infinity as InfinityIcon,
   Image,
   Megaphone,
   Menu,
@@ -75,6 +76,7 @@ const NAV: AdminNavSection[] = [
     items: [
       { label: "Configuración", href: "/admin/panel-admin/settings", icon: Settings },
       { label: "Usuarios y roles", href: "/admin/panel-admin/users-roles", icon: Shield },
+      { label: "Carrusel", href: "/admin/panel-admin/product-carousel", icon: InfinityIcon },
       { label: "Banners", href: "/admin/panel-admin/banners", icon: Image },
       { label: "Contenido", href: "/admin/panel-admin/content", icon: BookOpen },
     ],
@@ -99,6 +101,7 @@ function resolveTitle(pathname: string) {
   if (pathname.startsWith("/admin/panel-admin/marketing")) return "Marketing";
   if (pathname.startsWith("/admin/panel-admin/settings")) return "Configuración";
   if (pathname.startsWith("/admin/panel-admin/users-roles")) return "Usuarios y roles";
+  if (pathname.startsWith("/admin/panel-admin/product-carousel")) return "Carrusel";
   if (pathname.startsWith("/admin/panel-admin/banners")) return "Banners";
   if (pathname.startsWith("/admin/panel-admin/content")) return "Contenido";
   return "Admin";
@@ -227,3 +230,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     </ToastProvider>
   );
 }
+
+
+
