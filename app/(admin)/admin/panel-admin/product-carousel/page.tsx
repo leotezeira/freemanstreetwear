@@ -57,16 +57,21 @@ export default function AdminProductCarouselPage() {
       if (!carouselRes.ok) throw new Error(carouselBody?.error ?? "No se pudo cargar el carrusel");
       if (!productsRes.ok) throw new Error(productsBody?.error ?? "No se pudieron cargar productos");
 
-      setItems(
-        Array.isArray(carouselBody?.items)
-          ? (carouselBody.items as CarouselItem[])
-              .map((item, idx) => ({
-                ...item,
-                sort_order: item?.sort_order ?? idx,
-              }))
-              .filter((item) => !!item.products)
-          : []
-      );
+      const loadedItems = Array.isArray(carouselBody?.items)
+        ? (carouselBody.items as CarouselItem[]).map((item, idx) => ({
+            ...item,
+            sort_order: item?.sort_order ?? idx,
+          }))
+        : [];
+      const orphans = loadedItems.filter((item) => !item.products);
+      if (orphans.length) {
+        toast.push({
+          variant: "warning",
+          title: "Productos huérfanos",
+          description: `${orphans.length} producto${orphans.length === 1 ? "" : "s"} no existe${orphans.length === 1 ? "" : "n"} en la tienda.`,
+        });
+      }
+      setItems(loadedItems);
       setProducts(Array.isArray(productsBody?.products) ? (productsBody.products as Product[]) : []);
     } catch (e) {
       toast.push({
