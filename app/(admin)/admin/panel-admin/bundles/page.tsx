@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // =====================================================
 // ADMIN: /admin/panel-admin/bundles
 // Lista todos los bundles (activos e inactivos)

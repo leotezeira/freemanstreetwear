@@ -4,6 +4,8 @@
 
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState } from "react";
 
 type Props = {

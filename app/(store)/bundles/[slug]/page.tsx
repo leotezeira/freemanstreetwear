@@ -65,11 +65,11 @@ export default function BundleDetailPage() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Error al cargar");
       setBundle(body.bundle);
-    } catch (e) {
+    } catch (error) {
       toast.push({
         variant: "error",
         title: "Error",
-        description: e instanceof Error ? e.message : "No se pudo cargar el bundle",
+        description: error instanceof Error ? error.message : "No se pudo cargar el bundle",
       });
       router.push("/bundles");
     } finally {

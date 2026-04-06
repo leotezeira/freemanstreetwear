@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useRef, useState } from "react";
 
 export function LogoUploader({ currentUrl }: { currentUrl: string | null }) {

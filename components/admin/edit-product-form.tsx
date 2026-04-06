@@ -9,8 +9,6 @@ import {
   Box,
   ChevronDown,
   DollarSign,
-  Image as ImageIcon,
-  Link as LinkIcon,
   Save,
   Tag,
   Text,
@@ -64,13 +62,6 @@ function uniqueCaseInsensitive(values: string[]) {
     out.push(v.trim());
   }
   return out;
-}
-
-function parseCsv(input: string) {
-  return input
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 export function EditProductForm({ product, categories: categoriesProp }: Props) {

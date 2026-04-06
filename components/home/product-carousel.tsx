@@ -12,12 +12,11 @@ type Props = {
 };
 
 export function ProductCarousel({ products, transferDiscountPercent }: Props) {
-  if (!products.length) return null;
-
   const [paused, setPaused] = useState(false);
   const duration = useMemo(() => `${Math.max(18, products.length * 4)}s`, [products.length]);
 
   const track = useMemo(() => [...products, ...products], [products]);
+  if (!products.length) return null;
 
   return (
     <section className="app-container space-y-4">

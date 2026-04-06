@@ -143,7 +143,7 @@ export async function POST(request: Request) {
           ? (parsed.data.shipping.agencyCode ?? null)
           : null,
       paymentStatus: "pending",
-      items: orderItems.map(({ productName, variantId, size, color, ...rest }) => ({
+      items: orderItems.map(({ productName: _productName, variantId, size, color, ...rest }) => ({
         ...rest,
         variantId,
         size,

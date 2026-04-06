@@ -15,10 +15,6 @@ type ProductDetailPageProps = {
   params: Promise<{ id: string }>;
 };
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(value);
-}
-
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { id } = await params;
   const detail = await getProductDetailById(id).catch(() => null);
