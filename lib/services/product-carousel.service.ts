@@ -72,9 +72,15 @@ async function signProductImages(product: CarouselProductRaw): Promise<SignedCar
   };
 }
 
+function resolveProduct(row: CarouselRowData): CarouselProductRaw | undefined {
+  const list = row.products ?? [];
+  if (!list.length) return undefined;
+  return list.find((p) => p.id === row.product_id) ?? list[0];
+}
+
 async function enrichRows(rawRows: CarouselRowData[]) {
   const candidates = rawRows
-    .map((row) => row.products?.[0])
+    .map((row) => resolveProduct(row))
     .filter((p): p is CarouselProductRaw => Boolean(p));
 
   const signedProducts = await Promise.all(candidates.map((p) => signProductImages(p)));
