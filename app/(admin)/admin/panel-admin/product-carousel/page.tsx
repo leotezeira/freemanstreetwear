@@ -126,7 +126,7 @@ export default function AdminProductCarouselPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      const productIds = items.map((item) => item.product_id);
+      const productIds = items.map((item) => item.product_id).filter(Boolean);
       const res = await fetch("/api/admin/product-carousel", {
         method: "POST",
         headers: { "content-type": "application/json" },
