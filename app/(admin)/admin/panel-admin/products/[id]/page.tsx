@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSignedProductImageUrl } from "@/lib/services/product-images.service";

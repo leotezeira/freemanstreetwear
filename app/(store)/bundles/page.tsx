@@ -5,16 +5,8 @@
 
 import { getActiveBundles } from "@/lib/services/bundles.service";
 import { BundleCard } from "@/components/products/bundle-card";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  }).format(value);
-}
 
 export default async function BundlesPage() {
   const bundles = await getActiveBundles();

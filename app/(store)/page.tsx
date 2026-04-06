@@ -8,17 +8,9 @@ import { getActiveBanners, getBannerSettings } from "@/lib/services/hero-banners
 import { getActiveBundles } from "@/lib/services/bundles.service";
 import { getFeaturedProducts, searchProductsByName } from "@/lib/services/products.service";
 import { getTransferDiscountPercent } from "@/lib/services/payment-settings.service";
-import { StarRating } from "@/components/ratings/star-rating";
 import { getActiveCarouselProducts } from "@/lib/services/product-carousel.service";
 
 export const dynamic = "force-dynamic";
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  }).format(value);
-}
 
 export default async function HomePage() {
   const content = await getSiteContent();

@@ -55,6 +55,7 @@ export default function BundleDetailPage() {
 
   useEffect(() => {
     void loadBundle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   async function loadBundle() {

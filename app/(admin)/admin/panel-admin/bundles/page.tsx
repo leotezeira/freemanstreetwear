@@ -27,6 +27,7 @@ export default function AdminBundlesPage() {
 
   useEffect(() => {
     void loadBundles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadBundles() {

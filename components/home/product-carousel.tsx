@@ -12,10 +12,10 @@ type Props = {
 };
 
 export function ProductCarousel({ products, transferDiscountPercent }: Props) {
+  if (!products.length) return null;
+
   const [paused, setPaused] = useState(false);
   const duration = useMemo(() => `${Math.max(18, products.length * 4)}s`, [products.length]);
-
-  if (!products.length) return null;
 
   const track = useMemo(() => [...products, ...products], [products]);
 
