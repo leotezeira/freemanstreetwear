@@ -94,35 +94,32 @@ export function CartSummary() {
               </div>
             ))}
 
-            {bundleGroups.map(([groupId, bundleItems]) => (
-              <div
-                key={groupId}
-                className="space-y-1 border-t border-slate-200 pt-2 text-sm text-slate-600 dark:border-slate-800"
-              >
-                <div className="flex items-center justify-between text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                  <span className="flex items-center gap-1 text-xs font-semibold">
-                    <Icon icon={Package2} size={14} />
-                    Bundle ({bundleItems.length} productos)
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                    {formatMoney(
-                      bundleItems.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0)
-                    )}
-                  </span>
-                </div>
-                {bundleItems.map((it) => (
-                  <div
-                    key={`${it.productId}-${it.variantId ?? "base"}`}
-                    className="ml-4 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400"
-                  >
-                    <span>{it.name} × {it.quantity}</span>
-                    <span className="text-slate-900 dark:text-slate-50">
-                      {formatMoney(it.unitPrice * it.quantity)}
+            {bundleGroups.map(([groupId, bundleItems]) => {
+              const bundleTotal = bundleItems.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
+              return (
+                <div
+                  key={groupId}
+                  className="space-y-1 border-t border-slate-200 pt-2 text-sm text-slate-600 dark:border-slate-800"
+                >
+                  <div className="flex items-center justify-between text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                    <span className="flex items-center gap-1 text-xs font-semibold">
+                      <Icon icon={Package2} size={14} />
+                      Bundle ({bundleItems.length} productos)
+                    </span>
+                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                      {formatMoney(bundleTotal)}
                     </span>
                   </div>
-                ))}
-              </div>
-            ))}
+                  <div className="ml-4 flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
+                    {bundleItems.map((it) => (
+                      <span key={`${it.productId}-${it.variantId ?? "base"}`}>
+                        {it.name} × {it.quantity}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
