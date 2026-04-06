@@ -66,7 +66,7 @@ export default function AdminProductCarouselPage() {
       const orphans = loadedItems.filter((item) => !item.products);
       if (orphans.length) {
         toast.push({
-          variant: "warning",
+          variant: "info",
           title: "Productos huérfanos",
           description: `${orphans.length} producto${orphans.length === 1 ? "" : "s"} no existe${orphans.length === 1 ? "" : "n"} en la tienda.`,
         });
