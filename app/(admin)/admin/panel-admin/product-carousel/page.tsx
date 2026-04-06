@@ -70,7 +70,7 @@ export default function AdminProductCarouselPage() {
       toast.push({
         variant: "error",
         title: "Error",
-        description: e instanceof Error ? e.message : "No se pudo cargar la informaciÃ³n",
+        description: e instanceof Error ? e.message : "No se pudo cargar la informaci�n",
       });
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ export default function AdminProductCarouselPage() {
 
   function addProduct(product: Product) {
     if (items.some((item) => item.product_id === product.id)) {
-      toast.push({ variant: "error", title: "Duplicado", description: "Ese producto ya estÃ¡ en el carrusel" });
+      toast.push({ variant: "error", title: "Duplicado", description: "Ese producto ya est� en el carrusel" });
       return;
     }
     setItems((prev) =>
@@ -157,7 +157,7 @@ export default function AdminProductCarouselPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight">Carrusel de productos</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            SeleccionÃ¡ los productos que se mueven de forma infinita en home.
+            Seleccion� los productos que se mueven de forma infinita en home.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -186,9 +186,9 @@ export default function AdminProductCarouselPage() {
         <div className="card-base space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold">SelecciÃ³n actual</h2>
+              <h2 className="text-lg font-bold">Selecci�n actual</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                ArrastrÃ¡ el orden (o usa las flechas) y quitÃ¡ los que no quieras mostrar.
+                Arrastr� el orden (o usa las flechas) y quit� los que no quieras mostrar.
               </p>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">
@@ -204,8 +204,8 @@ export default function AdminProductCarouselPage() {
             </div>
           ) : !items.length ? (
             <div className="card-base border border-dashed border-slate-300 text-center dark:border-slate-800">
-              <p className="font-semibold text-slate-700 dark:text-slate-200">TodavÃ­a no hay productos en el carrusel</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">AgregÃ¡ productos desde la columna derecha.</p>
+              <p className="font-semibold text-slate-700 dark:text-slate-200">Todav�a no hay productos en el carrusel</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Agreg� productos desde la columna derecha.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -227,10 +227,10 @@ export default function AdminProductCarouselPage() {
                       {item.products?.name ?? "Producto sin nombre"}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {item.products?.category ?? "Sin categorÃ­a"} â€¢ {formatPrice(Number(item.products?.price ?? 0))}
+                      {item.products?.category ?? "Sin categor�a"} � {formatPrice(Number(item.products?.price ?? 0))}
                     </p>
                     <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                      Orden #{idx + 1} {item.products?.is_active ? "" : "â€¢ Inactivo"}
+                      Orden #{idx + 1} {item.products?.is_active ? "" : "� Inactivo"}
                     </p>
                   </div>
 
@@ -272,7 +272,7 @@ export default function AdminProductCarouselPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">Agregar productos</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">BuscÃ¡ entre los productos activos.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Busc� entre los productos activos.</p>
             </div>
           </div>
 
@@ -282,7 +282,7 @@ export default function AdminProductCarouselPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o categorÃ­a"
+              placeholder="Buscar por nombre o categor�a"
               className="input-base rounded-xl pl-9 pr-3"
             />
           </div>
@@ -309,7 +309,7 @@ export default function AdminProductCarouselPage() {
                     <div>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{product.name}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {product.category ?? "Sin categorÃ­a"} â€¢ {formatPrice(product.price)}
+                        {product.category ?? "Sin categor�a"} � {formatPrice(product.price)}
                       </p>
                     </div>
                   </div>
