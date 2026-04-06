@@ -225,7 +225,7 @@ export default function BundleDetailPage() {
       });
 
       router.push("/cart");
-    } catch (e) {
+    } catch {
       toast.push({
         variant: "error",
         title: "Error",

@@ -2,17 +2,26 @@ import type { Product } from "@/types/domain";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSignedProductImageUrl } from "@/lib/services/product-images.service";
 
-type CarouselRow = {
+type CarouselProductRaw = Product & {
+  product_images?: Array<{ image_path: string | null; is_primary: boolean; sort_order: number }>;
+};
+
+type CarouselRowData = {
   id: string;
   product_id: string;
   sort_order: number;
   is_active: boolean;
   created_at: string;
-  products?: Product & {
-    product_images?: Array<{ image_path: string | null; is_primary: boolean; sort_order: number }>;
-    primary_image_url?: string | null;
-    hover_image_url?: string | null;
-  };
+  products?: CarouselProductRaw[] | null;
+};
+
+type SignedCarouselProduct = Product & {
+  primary_image_url?: string | null;
+  hover_image_url?: string | null;
+};
+
+type CarouselRow = Omit<CarouselRowData, "products"> & {
+  products?: SignedCarouselProduct | null;
 };
 
 const SELECT_WITH_PRODUCT = `
@@ -44,7 +53,7 @@ function isMissingTable(error: unknown) {
   return lower.includes("product_carousel_items") && (lower.includes("does not exist") || lower.includes("relation"));
 }
 
-async function signProductImages(product: any): Promise<Product & { primary_image_url?: string | null; hover_image_url?: string | null }> {
+async function signProductImages(product: CarouselProductRaw): Promise<SignedCarouselProduct> {
   const images = product?.product_images ?? [];
   const ordered = images
     .filter((img: any) => img?.image_path)
@@ -63,6 +72,21 @@ async function signProductImages(product: any): Promise<Product & { primary_imag
   };
 }
 
+async function enrichRows(rawRows: CarouselRowData[]) {
+  const candidates = rawRows
+    .map((row) => row.products?.[0])
+    .filter((p): p is CarouselProductRaw => Boolean(p));
+
+  const signedProducts = await Promise.all(candidates.map((p) => signProductImages(p)));
+  const map = new Map<string, SignedCarouselProduct>();
+  signedProducts.forEach((p) => map.set(p.id, p));
+
+  return rawRows.map((row) => ({
+    ...row,
+    products: map.get(row.product_id) ?? row.products?.[0] ?? null,
+  }));
+}
+
 export async function getActiveCarouselProducts(): Promise<Product[]> {
   try {
     const supabase = getSupabaseAdminClient();
@@ -77,20 +101,12 @@ export async function getActiveCarouselProducts(): Promise<Product[]> {
       throw error;
     }
 
-    const rows = (data ?? []) as CarouselRow[];
-    const signedProducts = await Promise.all(
-      rows
-        .map((row) => row.products)
-        .filter((p): p is NonNullable<CarouselRow["products"]> => !!p && p.is_active)
-        .map((p) => signProductImages(p))
-    );
-
-    const map = new Map<string, Product>();
-    signedProducts.forEach((p) => map.set(p.id, p));
+    const rawRows = (data ?? []) as CarouselRowData[];
+    const rows = await enrichRows(rawRows);
 
     return rows
-      .map((row) => map.get(row.product_id))
-      .filter((p): p is Product => Boolean(p));
+      .map((row) => row.products)
+      .filter((p): p is SignedCarouselProduct => Boolean(p));
   } catch (e) {
     console.error("[getActiveCarouselProducts]", e);
     return [];
@@ -110,21 +126,8 @@ export async function getCarouselItemsForAdmin(): Promise<CarouselRow[]> {
       throw error;
     }
 
-    const rows = (data ?? []) as CarouselRow[];
-    const signedProducts = await Promise.all(
-      rows
-        .map((row) => row.products)
-        .filter((p): p is NonNullable<CarouselRow["products"]> => !!p)
-        .map((p) => signProductImages(p))
-    );
-
-    const map = new Map<string, Product & { primary_image_url?: string | null; hover_image_url?: string | null }>();
-    signedProducts.forEach((p) => map.set(p.id, p));
-
-    return rows.map((row) => ({
-      ...row,
-      products: map.get(row.product_id) ?? row.products,
-    }));
+    const rawRows = (data ?? []) as CarouselRowData[];
+    return enrichRows(rawRows);
   } catch (e) {
     console.error("[getCarouselItemsForAdmin]", e);
     return [];
