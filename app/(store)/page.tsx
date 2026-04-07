@@ -95,6 +95,27 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* Packs y Combos */}
+      {bundles.length > 0 ? (
+        <section className="app-container py-8">
+          <div className="mb-6 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Packs y Combos</h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Ofertas en combos seleccionados.</p>
+            </div>
+            <Link href="/bundles" className="text-sm font-semibold text-slate-700 hover:text-accent dark:text-slate-200">
+              Ver todos
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            {bundles.slice(0, 4).map((bundle) => (
+              <BundleCard key={bundle.id} bundle={bundle} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {/* Carrusel infinito */}
       {carouselProducts.length > 0 ? (
         <ProductCarousel products={carouselProducts} transferDiscountPercent={transferDiscountPercent} />
@@ -162,27 +183,6 @@ export default async function HomePage() {
           <p className="mt-2 text-slate-200">{content.home.promoSubtitle}</p>
         </div>
       </section>
-
-      {/* Packs y Combos */}
-      {bundles.length > 0 ? (
-        <section className="app-container py-8">
-          <div className="mb-6 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Packs y Combos</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Ofertas en combos seleccionados.</p>
-            </div>
-            <Link href="/bundles" className="text-sm font-semibold text-slate-700 hover:text-accent dark:text-slate-200">
-              Ver todos
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-            {bundles.slice(0, 4).map((bundle) => (
-              <BundleCard key={bundle.id} bundle={bundle} />
-            ))}
-          </div>
-        </section>
-      ) : null}
     </main>
   );
 }
