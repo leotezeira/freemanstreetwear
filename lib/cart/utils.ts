@@ -1,6 +1,8 @@
 export type CartLineKeyInput = {
   productId: string;
   variantId?: string | null;
+  bundleGroupId?: string | null;
+  bundleId?: string | null;
 };
 
 export type CartStoredLineItem = {
@@ -29,12 +31,32 @@ export type CartStoredLineItem = {
   bundleGroupId?: string | null;
 };
 
+function resolveBundleGroupId(input: Pick<CartLineKeyInput, "bundleGroupId" | "bundleId">) {
+  return input.bundleGroupId ?? input.bundleId ?? null;
+}
+
+export function normalizeCartItem(item: CartStoredLineItem): CartStoredLineItem {
+  const canonicalGroupId = resolveBundleGroupId(item);
+  if ((item.bundleGroupId ?? null) === canonicalGroupId) {
+    return item;
+  }
+  return {
+    ...item,
+    bundleGroupId: canonicalGroupId,
+  };
+}
+
 export function cartLineKey(input: CartLineKeyInput) {
-  return `${input.productId}::${input.variantId ?? ""}`;
+  const bundleGroupId = resolveBundleGroupId(input);
+  return `${input.productId}::${input.variantId ?? ""}::${bundleGroupId ?? ""}`;
 }
 
 export function sameCartLine(a: CartLineKeyInput, b: CartLineKeyInput) {
-  return a.productId === b.productId && (a.variantId ?? null) === (b.variantId ?? null);
+  return (
+    a.productId === b.productId &&
+    (a.variantId ?? null) === (b.variantId ?? null) &&
+    resolveBundleGroupId(a) === resolveBundleGroupId(b)
+  );
 }
 
 export function clampQuantity(quantity: number) {
@@ -48,11 +70,13 @@ export function mergeCartItems(
 ): CartStoredLineItem[] {
   const map = new Map<string, CartStoredLineItem>();
 
-  for (const item of a) {
+  for (const rawItem of a) {
+    const item = normalizeCartItem(rawItem);
     map.set(cartLineKey(item), { ...item, quantity: clampQuantity(item.quantity) });
   }
 
-  for (const item of b) {
+  for (const rawItem of b) {
+    const item = normalizeCartItem(rawItem);
     const key = cartLineKey(item);
     const existing = map.get(key);
     if (!existing) {
@@ -60,10 +84,10 @@ export function mergeCartItems(
       continue;
     }
 
-    map.set(key, {
+    const merged: CartStoredLineItem = {
       ...existing,
+      ...item,
       quantity: clampQuantity(existing.quantity + clampQuantity(item.quantity)),
-      // Prefer the freshest metadata if provided.
       name: item.name || existing.name,
       variantLabel: item.variantLabel ?? existing.variantLabel ?? null,
       unitPrice: Number.isFinite(item.unitPrice) ? item.unitPrice : existing.unitPrice,
@@ -76,8 +100,9 @@ export function mergeCartItems(
       width: item.width ?? existing.width ?? null,
       length: item.length ?? existing.length ?? null,
       bundleId: item.bundleId ?? existing.bundleId ?? null,
-      bundleGroupId: item.bundleGroupId ?? existing.bundleGroupId ?? null,
-    });
+    };
+
+    map.set(key, normalizeCartItem(merged));
   }
 
   return Array.from(map.values());

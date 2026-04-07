@@ -9,6 +9,7 @@ import {
   computeTotalQuantity,
   createExpiringStorage,
   mergeCartItems,
+  normalizeCartItem,
   sameCartLine,
   type CartStoredLineItem,
 } from "@/lib/cart/utils";
@@ -113,7 +114,7 @@ function normalizeItem(input: AddToCartInput): CartStoredLineItem {
     width: input.width ?? null,
     length: input.length ?? null,
     bundleId: input.bundleId ?? null,
-    bundleGroupId: input.bundleGroupId ?? null,
+    bundleGroupId: input.bundleGroupId ?? input.bundleId ?? null,
   };
 }
 
@@ -150,14 +151,15 @@ export const useCartStore = create<CartState>()(
         toggleDrawer: () => set((s) => ({ drawerOpen: !s.drawerOpen })),
 
         addToCart: (input) => {
-          const incoming = normalizeItem(input);
+          const incoming = normalizeCartItem(normalizeItem(input));
           if (!incoming.productId) return { ok: false, reason: "Producto inválido" };
           if (!Number.isFinite(incoming.unitPrice) || incoming.unitPrice < 0) {
             return { ok: false, reason: "Precio inválido" };
           }
 
           const before = get().items;
-          const next = upsertLineItem(before, incoming);
+          const normalizedBefore = before.map(normalizeCartItem);
+          const next = upsertLineItem(normalizedBefore, incoming);
 
           // Detect clamp (only when stock is known).
           const clamped = next.some((it) => {
@@ -280,9 +282,15 @@ export const useCartStore = create<CartState>()(
 
             // Remove any lines that became 0 after clamp.
             const finalItems = clamped.filter((it) => it.quantity > 0);
-            const derived = computeDerivedState(finalItems, get().shippingEstimate);
-
-            set({ items: finalItems, validationState: "idle", lastValidatedAt: Date.now(), ...derived });
+            const normalizedFinalItems = finalItems.map(normalizeCartItem);
+            const derived = computeDerivedState(normalizedFinalItems, get().shippingEstimate);
+ 
+            set({
+              items: normalizedFinalItems,
+              validationState: "idle",
+              lastValidatedAt: Date.now(),
+              ...derived,
+            });
 
             if (!derived.canCheckout) {
               return { ok: false, reason: "Hay productos sin stock o no disponibles" };
@@ -333,8 +341,8 @@ export const useCartStore = create<CartState>()(
 
             if (error) throw new Error(error.message);
 
-            const remoteItems = (row?.items ?? []) as CartStoredLineItem[];
-            const merged = mergeCartItems(remoteItems, get().items);
+            const remoteItems = ((row?.items ?? []) as CartStoredLineItem[]).map(normalizeCartItem);
+            const merged = mergeCartItems(remoteItems, get().items.map(normalizeCartItem));
             const derived = computeDerivedState(merged, get().shippingEstimate);
             set({ items: merged, ...derived });
 
@@ -378,7 +386,9 @@ export const useCartStore = create<CartState>()(
         }),
         onRehydrateStorage: () => (state) => {
           if (!state) return;
-          const derived = computeDerivedState(state.items, state.shippingEstimate);
+          const normalizedItems = (state.items ?? []).map(normalizeCartItem);
+          state.items = normalizedItems;
+          const derived = computeDerivedState(normalizedItems, state.shippingEstimate);
           state.totals = derived.totals;
           state.canCheckout = derived.canCheckout;
         },
